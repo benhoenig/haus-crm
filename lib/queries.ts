@@ -71,6 +71,17 @@ export async function getListings(): Promise<ListingRow[]> {
   return (data as ListingRow[]) ?? [];
 }
 
+export async function getLead(id: string): Promise<CrmRow | null> {
+  const { data } = await supabase
+    .from("main_6_buyer_crm")
+    .select(
+      "lead_id,lead_name,phone,potential,lead_status,pipeline_stage,lead_type,sale_id,listing_code,budget,commission,last_follow_date,closing_date,date_received"
+    )
+    .eq("lead_id", id)
+    .maybeSingle();
+  return (data as CrmRow | null) ?? null;
+}
+
 export async function getListing(id: string): Promise<ListingRow | null> {
   const { data } = await supabase
     .from("v_main_listing")

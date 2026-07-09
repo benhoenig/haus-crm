@@ -5,9 +5,10 @@ export default function LeadsLoading() {
   return (
     <>
       <Topbar title="Lead" subtitle="กำลังโหลด…" />
-      <div className="p-6">
+      <div className="p-4 lg:p-6">
         <SkeletonTable
-          minWidth="min-w-[980px]"
+          toolbar
+          minWidth="min-w-[1040px]"
           columns={[
             { label: "Lead ID", w: "w-14" },
             { label: "ลูกค้า", w: "w-32" },
