@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, Building2 } from "lucide-react";
 import type { ListingRow } from "@/lib/queries";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -127,8 +127,15 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
                     </Link>
                   </TD>
                   <TD>
-                    <div className="font-medium">{l.listing_name ?? "—"}</div>
-                    <div className="text-label text-text-subtle">{l.project_name_eng}</div>
+                    <div className="flex items-center gap-2.5">
+                      <Cover />
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{l.listing_name ?? "—"}</div>
+                        <div className="text-label text-text-subtle truncate">
+                          {l.project_name_eng}
+                        </div>
+                      </div>
+                    </div>
                   </TD>
                   <TD className="text-small text-text-muted">
                     {l.zone_name_thai}
@@ -181,5 +188,21 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Listing cover thumbnail — shows the photo when available, else a fallback
+ *  icon. HAUS has no listing photos yet, so this currently always falls back;
+ *  pass `src` once cover images are wired. */
+function Cover({ src }: { src?: string | null }) {
+  return (
+    <span className="h-9 w-12 shrink-0 rounded-md overflow-hidden bg-surface-2 border border-border grid place-items-center">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="size-full object-cover" />
+      ) : (
+        <Building2 size={16} strokeWidth={1.75} className="text-text-subtle" />
+      )}
+    </span>
   );
 }
