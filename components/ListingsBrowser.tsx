@@ -8,10 +8,12 @@ import type { ListingRow } from "@/lib/queries";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
+import { SortHeader, useSort } from "@/components/ui/SortHeader";
 import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { formatBaht, formatRent, formatNumber, daysOnMarketLabel } from "@/lib/format";
 import { listingStatusDot, potentialTone } from "@/lib/status";
+import { compareValues, orderIndex } from "@/lib/sort";
 import { cn } from "@/lib/cn";
 
 // Stable, sensible chip order — only statuses actually present get a chip.
@@ -26,10 +28,28 @@ const STATUS_ORDER = [
   "Cancel Completed",
 ];
 
+// Sort-value extractors. Categorical columns return a numeric rank so they
+// order by meaning (Exclusive → A-List → Normal), not alphabetically.
+const SORT_VALUE: Record<string, (l: ListingRow) => number | string | null> = {
+  listing_id: (l) => l.listing_id,
+  name: (l) => l.listing_name,
+  zone: (l) => l.zone_name_thai ?? l.zone,
+  area: (l) => l.area_sqm,
+  potential: (l) => {
+    if (l.potential == null) return null;
+    const t = potentialTone(l.potential);
+    return t === "accent" ? 0 : t === "amber" ? 1 : 2;
+  },
+  status: (l) => orderIndex(STATUS_ORDER, l.listing_status),
+  price: (l) => l.asking_price ?? l.rental_price,
+  dom: (l) => l.days_on_market,
+};
+
 export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [filter, setFilter] = React.useState("all");
+  const { sort, onSort } = useSort();
 
   const chips = [
     { key: "all", label: "ทั้งหมด" },
@@ -49,6 +69,11 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
           v?.toLowerCase().includes(query)
         )
     );
+
+  const sortFn = SORT_VALUE[sort.key];
+  const rows = sortFn
+    ? [...filtered].sort((a, b) => compareValues(sortFn(a), sortFn(b), sort.dir))
+    : filtered;
 
   return (
     <Card>
@@ -92,26 +117,26 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
       </div>
 
       <CardContent className="p-0">
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="p-10 text-center text-small text-text-subtle">ไม่พบทรัพย์</div>
         ) : (
           <Table className="min-w-[920px]">
             <THead>
               <TR>
-                <TH>Listing ID</TH>
-                <TH>โครงการ</TH>
-                <TH>โซน</TH>
+                <SortHeader label="Listing ID" sortKey="listing_id" sort={sort} onSort={onSort} />
+                <SortHeader label="โครงการ" sortKey="name" sort={sort} onSort={onSort} />
+                <SortHeader label="โซน" sortKey="zone" sort={sort} onSort={onSort} />
                 <TH>ประเภท</TH>
                 <TH className="text-right">ห้อง</TH>
-                <TH className="text-right">พื้นที่</TH>
-                <TH>Potential</TH>
-                <TH>สถานะ</TH>
-                <TH className="text-right">ราคา</TH>
-                <TH className="text-right">DOM</TH>
+                <SortHeader label="พื้นที่" sortKey="area" sort={sort} onSort={onSort} align="right" defaultDir="desc" />
+                <SortHeader label="Potential" sortKey="potential" sort={sort} onSort={onSort} />
+                <SortHeader label="สถานะ" sortKey="status" sort={sort} onSort={onSort} />
+                <SortHeader label="ราคา" sortKey="price" sort={sort} onSort={onSort} align="right" defaultDir="desc" />
+                <SortHeader label="DOM" sortKey="dom" sort={sort} onSort={onSort} align="right" defaultDir="desc" />
               </TR>
             </THead>
             <TBody>
-              {filtered.map((l) => (
+              {rows.map((l) => (
                 <TR
                   key={l.listing_id}
                   className="cursor-pointer"

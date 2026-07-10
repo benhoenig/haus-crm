@@ -8,6 +8,7 @@ import type { CrmRow } from "@/lib/queries";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
+import { SortHeader, useSort } from "@/components/ui/SortHeader";
 import { StatusBadge, Dot } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
@@ -15,12 +16,30 @@ import { GradeChip } from "@/components/ui/GradeChip";
 import { STAGES, stageMeta } from "@/lib/pipeline";
 import { formatBaht, formatThaiDate } from "@/lib/format";
 import { leadStatusDot } from "@/lib/status";
+import { compareValues, orderIndex } from "@/lib/sort";
 import { cn } from "@/lib/cn";
+
+const STAGE_KEYS = STAGES.map((s) => s.key);
+const LEAD_POTENTIAL_ORDER = ["A", "B", "C", "New Lead"];
+const LEAD_STATUS_ORDER = ["Active", "Win", "Lose", "Reject"];
+
+// Categorical columns rank by domain order (grade A→C, pipeline stage order).
+const SORT_VALUE: Record<string, (c: CrmRow) => number | string | null> = {
+  lead_id: (c) => c.lead_id,
+  name: (c) => c.lead_name,
+  potential: (c) => orderIndex(LEAD_POTENTIAL_ORDER, c.potential),
+  stage: (c) => orderIndex(STAGE_KEYS, c.pipeline_stage),
+  status: (c) => orderIndex(LEAD_STATUS_ORDER, c.lead_status),
+  budget: (c) => c.budget,
+  commission: (c) => c.commission,
+  follow: (c) => c.last_follow_date,
+};
 
 export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [stage, setStage] = React.useState("all");
+  const { sort, onSort } = useSort();
 
   const chips = [
     { key: "all", label: "ทั้งหมด" },
@@ -38,6 +57,11 @@ export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
         !query ||
         [c.lead_name, c.phone, c.lead_id].some((v) => v?.toLowerCase().includes(query))
     );
+
+  const sortFn = SORT_VALUE[sort.key];
+  const rows = sortFn
+    ? [...filtered].sort((a, b) => compareValues(sortFn(a), sortFn(b), sort.dir))
+    : filtered;
 
   return (
     <Card>
@@ -81,26 +105,26 @@ export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
       </div>
 
       <CardContent className="p-0">
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="p-10 text-center text-small text-text-subtle">ไม่พบรายการ</div>
         ) : (
           <Table className="min-w-[1040px]">
             <THead>
               <TR>
-                <TH>Lead ID</TH>
-                <TH>ลูกค้า</TH>
-                <TH>เกรด</TH>
-                <TH>สเตจ</TH>
-                <TH>สถานะ</TH>
+                <SortHeader label="Lead ID" sortKey="lead_id" sort={sort} onSort={onSort} />
+                <SortHeader label="ลูกค้า" sortKey="name" sort={sort} onSort={onSort} />
+                <SortHeader label="เกรด" sortKey="potential" sort={sort} onSort={onSort} />
+                <SortHeader label="สเตจ" sortKey="stage" sort={sort} onSort={onSort} />
+                <SortHeader label="สถานะ" sortKey="status" sort={sort} onSort={onSort} />
                 <TH>ประเภท</TH>
                 <TH>เซล</TH>
-                <TH className="text-right">งบประมาณ</TH>
-                <TH className="text-right">คอมมิชชั่น</TH>
-                <TH className="text-right">ติดตามล่าสุด</TH>
+                <SortHeader label="งบประมาณ" sortKey="budget" sort={sort} onSort={onSort} align="right" defaultDir="desc" />
+                <SortHeader label="คอมมิชชั่น" sortKey="commission" sort={sort} onSort={onSort} align="right" defaultDir="desc" />
+                <SortHeader label="ติดตามล่าสุด" sortKey="follow" sort={sort} onSort={onSort} align="right" defaultDir="desc" />
               </TR>
             </THead>
             <TBody>
-              {filtered.map((c) => {
+              {rows.map((c) => {
                 const stg = stageMeta(c.pipeline_stage);
                 return (
                   <TR
