@@ -8,18 +8,30 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
-import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
+import { Table, THead, TBody, TR, TD } from "@/components/ui/Table";
+import { SortHeader, useSort } from "@/components/ui/SortHeader";
+import { compareValues, orderIndex } from "@/lib/sort";
 import { cn } from "@/lib/cn";
 
 const ROLES = Object.keys(ROLE_LABEL) as ContactRole[];
+
+// บทบาท (role) sorts by the contact's PRIMARY (first) role's rank, since a
+// contact can hold several roles.
+const SORT_VALUE: Record<string, (c: Contact) => number | string | null> = {
+  name: (c) => c.name,
+  role: (c) => orderIndex(ROLES, c.roles[0]),
+  phone: (c) => c.phone,
+  line: (c) => c.line,
+};
 
 export function ContactsBrowser({ contacts }: { contacts: Contact[] }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [role, setRole] = React.useState<"all" | ContactRole>("all");
+  const { sort, onSort } = useSort();
 
   const query = q.trim().toLowerCase();
-  const list = contacts
+  const filtered = contacts
     .filter((c) => role === "all" || c.roles.includes(role))
     .filter(
       (c) =>
@@ -28,6 +40,11 @@ export function ContactsBrowser({ contacts }: { contacts: Contact[] }) {
         (c.phone ?? "").toLowerCase().includes(query) ||
         (c.line ?? "").toLowerCase().includes(query)
     );
+
+  const sortFn = SORT_VALUE[sort.key];
+  const list = sortFn
+    ? [...filtered].sort((a, b) => compareValues(sortFn(a), sortFn(b), sort.dir))
+    : filtered;
 
   const chips: { key: "all" | ContactRole; label: string }[] = [
     { key: "all", label: "ทั้งหมด" },
@@ -81,10 +98,10 @@ export function ContactsBrowser({ contacts }: { contacts: Contact[] }) {
             <Table>
               <THead>
                 <TR>
-                  <TH>ชื่อ</TH>
-                  <TH>บทบาท</TH>
-                  <TH>เบอร์โทร</TH>
-                  <TH>LINE</TH>
+                  <SortHeader label="ชื่อ" sortKey="name" sort={sort} onSort={onSort} />
+                  <SortHeader label="บทบาท" sortKey="role" sort={sort} onSort={onSort} />
+                  <SortHeader label="เบอร์โทร" sortKey="phone" sort={sort} onSort={onSort} />
+                  <SortHeader label="LINE" sortKey="line" sort={sort} onSort={onSort} />
                 </TR>
               </THead>
               <TBody>
