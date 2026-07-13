@@ -187,8 +187,9 @@ How the backlog surfaces get built into the CRM (decided with Ben):
 
 **Decided:** NOT hardcoded roles — a **configurable permission system**. A role is an
 editable *set* of permissions; a **user holds one or more roles** and effective access is
-the **union**. The CEO creates/edits roles + assigns users on **`/settings/roles`**
-(built: `components/RolesManager.tsx`, `lib/rbac.ts`). Design phase = interactive but
+the **union**. The CEO creates/edits roles + assigns users in the single **`/settings`**
+hub → บทบาท & สิทธิ์ section (Shelter-style one-page settings: `SettingsView.tsx` +
+`RolesManager.tsx`, `lib/rbac.ts`). Design phase = interactive but
 in-memory (not persisted). Wire later = tables `roles`, `role_permissions`, `user_roles`,
 + a `can(permission)` check fed by the session's union of role permissions.
 

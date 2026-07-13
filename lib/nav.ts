@@ -8,8 +8,7 @@ import {
   Landmark,
   Handshake,
   Activity,
-  Map,
-  ShieldCheck,
+  Settings,
 } from "lucide-react";
 
 export interface NavItem {
@@ -58,11 +57,9 @@ export const NAV: NavGroup[] = [
     items: [{ href: "/performance", label: "Actions / KPI", icon: Activity }],
   },
   {
-    title: "ตั้งค่า",
+    // Single settings hub; sections (roles, zones, master-data) live inside the page.
+    title: "",
     admin: true,
-    items: [
-      { href: "/settings/roles", label: "บทบาท & สิทธิ์", icon: ShieldCheck },
-      { href: "/settings/zones", label: "โซน", icon: Map },
-    ],
+    items: [{ href: "/settings", label: "ตั้งค่า", icon: Settings }],
   },
 ];

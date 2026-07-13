@@ -104,9 +104,10 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 - [ ] Same rows appear in listing/lead **detail timelines** AND the KPI aggregate
 - [ ] **Role-gate** FABs + `/settings` to agents/CEO once auth lands (currently global)
 
-### Settings · Zones (`/settings/zones`)  ⚠️ *sample data (`lib/zones.ts` → `zone`)*
-- [ ] Wire to `zone` table; `+ เพิ่มโซน` / row edit write (CEO only)
-- [ ] Zone becomes the single controlled vocabulary listings/leads/last-match reference
+### Settings hub (`/settings`, Shelter-style single page)  ⚠️ *sample data + in-memory*
+- [ ] **Roles & Permissions** (`lib/rbac.ts`): persist roles/permissions/user-roles; `can()` gating app-wide + a "view as" role switcher; gate `/settings` + FABs by permission
+- [ ] **Zones** (`lib/zones.ts` → `zone`): wire table; `+ เพิ่มโซน` / row edit write (CEO)
+- [ ] **Master-data sections** (Property Types, Action types, KPI Targets): currently เร็ว ๆ นี้ stubs — build + wire as CEO-governed vocabularies
 
 ### ⛔ Still not designed
 - [ ] Decide back-office vs. CRM for remaining unreviewed tabs (Owner, New Lead, KPI Target, Spending, Comments, Dashboards)
