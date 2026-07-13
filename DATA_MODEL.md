@@ -19,8 +19,9 @@
 | **Buyer Focus** | ~176 | `/leads` (Lead) | ✅ built (design-first) |
 | **Projects** | 39 | project knowledge base | ⛔ **not designed yet** |
 | **Last Match** | 118 | market-comps ledger | ⛔ **not designed yet** |
-| **Actions** | 289 | agent activity log / KPI | ⛔ **not designed yet** |
-| _Owner, New Lead, Zone, KPI Target, Spending, Comments, Dashboards…_ | — | various | ⛔ not yet reviewed |
+| **Actions** | 289 | agent activity log → FAB logger + ผลงาน/KPI | ⛔ **not designed yet** ([approach decided](#design-decisions--2026-07-13)) |
+| **Zone** | — | CEO-managed lookup (ตั้งค่า/admin) | ⛔ **not designed yet** |
+| _Owner, New Lead, KPI Target, Spending, Comments, Dashboards…_ | — | various | ⛔ not yet reviewed |
 
 > ⚠️ **Design-steps reminder:** three real, populated surfaces below (**Projects,
 > Last Match, Actions**) exist in the source but have **no screen in the CRM**.
@@ -144,6 +145,41 @@ These come straight from the source workbook and must be planned into the remain
       per day/week), including the unused recap/retro fields (`เกิดอะไรขึ้น/เพราะอะไร/Improvement Plan`).
 - [ ] Decide which of the **remaining unreviewed tabs** (Owner, New Lead, Zone, KPI Target,
       Spending, Comments, Dashboard*) become CRM surfaces vs. stay back-office.
+
+---
+
+## Design decisions — 2026-07-13
+
+How the backlog surfaces get built into the CRM (decided with Ben):
+
+- **Activity model = UNIFIED (resolved).** One `activities` table is *both* the KPI
+  tally and the entity-timeline event. Reference: **`W Property`** (`~/Desktop/Ben/
+  Business/Custom Dashboard Client/W Property` — `components/LogActivity.jsx`). Its FAB
+  writes one row `{ created_by, action, related_lead_id?, date, count, remark }`:
+  attaching an entity → a count-1 touch in that entity's history; skipping → an
+  aggregate KPI tally (count N). **HAUS extension:** add `related_listing_id?`
+  (+ optional project) so an action can tag a **lead OR a listing** (W Property tags
+  leads only). Two views of the same rows: entity timeline (lead/listing detail) +
+  ผลงาน/KPI aggregate.
+- **FAB logger (agent-only).** Mirror W Property's stacked bottom-right FABs: primary
+  solid **"บันทึก"** (action-first bottom-sheet: pick action → optionally attach
+  lead/listing → date/count/note) + secondary outlined **"เพิ่มลีด"**. Mounted for the
+  sales role only; CEO/admin see dashboards, not FABs. (New-listing stays on the ทรัพย์
+  page to avoid a crowded FAB stack.)
+- **Roles: CEO/admin vs agent (explicit now).** Agents log activity + own their
+  leads/listings; the CEO **governs master data**. Role-gates the FABs and the ตั้งค่า area.
+- **Master-data / admin area (ตั้งค่า, CEO-managed).** **Zone becomes a CEO-managed
+  table** — and it's the first of several controlled vocabularies that belong here:
+  canonical **Property Type**, the **Action-type list**, **KPI Target**. One place to
+  govern the vocabularies everything else references.
+- **Action taxonomy.** Canonicalize the 23 messy source values into W Property's groups
+  (`ไปป์ไลน์` / `กิจกรรม` / `ธุรการ` / `ทั่วไป`), collapsing dupes (`Show`/`Showing`,
+  `Reels`/`ถ่าย Reels`), and tag each action **lead-bound / listing-bound / general**.
+- **Navigation (grouped sidebar).** `ภาพรวม`(แดชบอร์ด) · `ดีล`(ไปป์ไลน์, Lead) ·
+  `คลังทรัพย์`(ทรัพย์, โครงการ, Last Match) · `ติดต่อ`(ผู้ติดต่อ) · `ผลงาน`(Actions/KPI) ·
+  `ตั้งค่า`/CEO(Zone, Property Types, Action types, KPI Target). **Actions lives in ผลงาน,
+  not with Projects/Last Match** — those are inventory (data agents *use*); Actions is
+  performance; ตั้งค่า is data the CEO *governs*.
 
 ---
 
