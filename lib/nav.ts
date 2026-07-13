@@ -4,6 +4,8 @@ import {
   CalendarCheck,
   Columns3,
   Users,
+  UserCog,
+  Share2,
   Building2,
   Contact,
   Landmark,
@@ -46,6 +48,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/pipeline", label: "ไปป์ไลน์", icon: Columns3, perm: ["leads.view_all", "leads.view_own"] },
       { href: "/leads", label: "Lead", icon: Users, perm: ["leads.view_all", "leads.view_own"] },
+      { href: "/assign", label: "มอบหมาย Lead", icon: Share2, perm: "leads.assign" },
     ],
   },
   {
@@ -66,6 +69,7 @@ export const NAV: NavGroup[] = [
     title: "ผลงาน",
     items: [
       { href: "/performance", label: "Actions / KPI", icon: Activity, perm: ["performance.view_team", "performance.view_own"] },
+      { href: "/team", label: "ทีม / บุคคล", icon: UserCog, perm: ["people.manage", "performance.view_team"] },
     ],
   },
   {
