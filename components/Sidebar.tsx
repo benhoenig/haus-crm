@@ -69,9 +69,12 @@ function SidebarBody() {
       </div>
 
       {/* Nav */}
-      <nav className="px-2 pt-3 pb-2 flex-1 overflow-y-auto">
+      <nav className="px-2 pt-3 pb-2 flex-1 flex flex-col overflow-y-auto">
         {NAV.map((group) => (
-          <div key={group.title || group.items[0]?.href} className="mb-3 last:mb-0">
+          <div
+            key={group.title || group.items[0]?.href}
+            className={cn("mb-3", group.bottom ? "mt-auto mb-0" : "last:mb-0")}
+          >
             {group.title && (
               <div className="px-2 text-label uppercase text-text-subtle mb-1">{group.title}</div>
             )}

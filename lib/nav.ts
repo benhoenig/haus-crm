@@ -23,6 +23,8 @@ export interface NavGroup {
   items: NavItem[];
   /** CEO/admin-only section (role-gated once auth is wired). */
   admin?: boolean;
+  /** Pin this group to the bottom of the sidebar (e.g. Settings). */
+  bottom?: boolean;
 }
 
 // Grouped by what the user is *doing*, not 1:1 with source tabs:
@@ -60,6 +62,7 @@ export const NAV: NavGroup[] = [
     // Single settings hub; sections (roles, zones, master-data) live inside the page.
     title: "",
     admin: true,
+    bottom: true,
     items: [{ href: "/settings", label: "ตั้งค่า", icon: Settings }],
   },
 ];
