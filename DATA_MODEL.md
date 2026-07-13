@@ -183,39 +183,39 @@ How the backlog surfaces get built into the CRM (decided with Ben):
 
 ---
 
-## Roles & access model (role-based, design-first)
+## Roles & access model — configurable RBAC (built UI-first)
 
-**Decided:** the CRM models **6 roles** — `CEO` · `Admin` · `Listing Support` ·
-`Sales Leader` · `Agent` · `HR`. Build it **UI-first**: a `role` context + a "view as"
-switcher (a stand-in for the auth session), role-gated nav/actions, and data-scoping over
-the sample data. **Real auth/session/RLS is the wiring agent's job** — we hand them the
-role model + one seam to plug the session into, so RLS isn't guesswork. (Reference pattern:
-W Property's `role` state + `canX` gates + "view as" switcher.)
+**Decided:** NOT hardcoded roles — a **configurable permission system**. A role is an
+editable *set* of permissions; a **user holds one or more roles** and effective access is
+the **union**. The CEO creates/edits roles + assigns users on **`/settings/roles`**
+(built: `components/RolesManager.tsx`, `lib/rbac.ts`). Design phase = interactive but
+in-memory (not persisted). Wire later = tables `roles`, `role_permissions`, `user_roles`,
++ a `can(permission)` check fed by the session's union of role permissions.
 
-**Decided data rule — contact privacy:** a contact is hidden unless you **created it** or
-it's **assigned to you**. Scope by role: Agent = own/assigned only · Sales Leader = their
-team's · Admin/CEO = all. *(The Leader/Admin/CEO tiers are proposed — confirm.)*
+**Why this shape (resolves the earlier open assumptions as *config*, not code):**
+- **Player-coach transition** — a person is `[Agent + Sales Leader]` now; drop the Agent
+  role later. Multi-role, no migration.
+- **HR payroll later** — just toggle `financials.payroll` / `financials.view` on the HR
+  role when the time comes.
+- **Who logs (FAB)** — one permission `activity.log`, granted to whoever does sales work.
+- **Contact privacy / master-data** — `contacts.view_own` vs `contacts.view_all`,
+  `masterdata.govern`, etc. are toggles the CEO sets per role, not baked assumptions.
 
-**Proposed capability matrix (draft — confirm/correct):**
+**Permission catalog** (the implemented gates — see `PERMISSION_GROUPS` in `lib/rbac.ts`):
+Leads (view all/own, assign, edit) · Contacts (view all, view own/assigned, manage) ·
+Inventory (view/edit listings, marketing, edit projects, add Last Match) · **Activity
+(log — the FAB)** · Targets/KPI (view team/own, set targets, add stretch) · Financials
+(view prices/commission, manage payroll) · People (manage employees) · Master data
+(govern zones & vocabularies) · System (manage roles & permissions).
 
-| Role | Sees (nav) | Data scope | Can do |
-| :-- | :-- | :-- | :-- |
-| **CEO** | everything + ตั้งค่า + Team/HR | all | govern master data, all KPI/targets, everything |
-| **Sales Leader** | Dashboard, Pipeline, Lead, ทรัพย์, โครงการ, Last Match, ผู้ติดต่อ, ผลงาน | **their team's** leads/contacts/activity · shared inventory | coach, reassign within team, **set team targets**, log activity |
-| **Agent** | same as Leader, own-scoped | shared inventory + leads · **contacts own/assigned only** · own activity | work own deals, log activity, **add personal stretch targets** |
-| **Admin** | Lead, ผู้ติดต่อ, ทรัพย์, Dashboard | **all** leads/contacts | distribute/assign leads, manage contacts, data entry |
-| **Listing Support** | ทรัพย์, โครงการ, Last Match, ผลงาน | all listings/projects | edit listings, marketing/portal, add comps, log listing activity |
-| **HR** | Team/HR, ผลงาน | employees + effort/activity (**no deal $**) | manage people, KPI targets, review effort |
+**Seed roles:** CEO (all permissions, system/locked) + Admin · Listing Support · Sales
+Leader · Agent · HR — the latter five seeded **empty on purpose** (duties defined by
+toggling in the UI, not assumed). Note: Listing Support's duties are **undefined** pending
+the client — left blank.
 
-**Assumptions still to confirm:** (1) Sales Leader scoped to their own team (needs a
-manager/team field on employees). (2) HR sees effort/targets but **not** financials. (3) FAB
-logger = Agent + Sales Leader + Listing Support only. (4) Master data (Zones, vocabularies)
-= CEO only; Admin handles lead assignment + contacts, not vocabularies. (5) Contact-privacy
-tiers above.
-
-**Implied new surfaces:** a **Team/HR** page (employees, roles, targets) and an **Admin
-lead-assignment** view — neither built yet. "Role-based, UI-first" = role scaffolding
-(view-as + gating + scoping) **plus** these two surfaces.
+**Still to build:** app-wide gating driven by `can()` + a **"view as" switcher** to preview
+a role (the RolesManager defines access; wiring it into nav/FAB/pages is the next step);
+plus a **Team/HR** page and an **Admin lead-assignment** view once those roles are defined.
 
 ---
 

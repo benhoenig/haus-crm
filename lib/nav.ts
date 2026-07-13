@@ -9,6 +9,7 @@ import {
   Handshake,
   Activity,
   Map,
+  ShieldCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -59,6 +60,9 @@ export const NAV: NavGroup[] = [
   {
     title: "ตั้งค่า",
     admin: true,
-    items: [{ href: "/settings/zones", label: "โซน", icon: Map }],
+    items: [
+      { href: "/settings/roles", label: "บทบาท & สิทธิ์", icon: ShieldCheck },
+      { href: "/settings/zones", label: "โซน", icon: Map },
+    ],
   },
 ];
