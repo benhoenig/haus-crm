@@ -18,15 +18,17 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 
 ## ⚠️ Data-wiring must-fixes (do these first)
 
-- [ ] **`asking_price` vs `rental_price`** — real data has rent values landing in
-      `asking_price` (e.g. CASK002 shows "ขาย ฿32,000"). Enforce sale→`asking_price`,
-      rent→`rental_price` at the source, or the ขาย/เช่า labels mislead everywhere.
+- [ ] **`asking_price` vs `rental_price`** — the **source separates them cleanly**
+      (Listings `AP` Asking, `AQ` Rental — see [DATA_MODEL.md](./DATA_MODEL.md)). Where
+      HAUS shows a rent value under "ขาย", the bug is in the **DB view mapping**, not the
+      source — fix the view to read AP→asking, AQ→rental.
 - [ ] **Contacts have no real table** — `/contacts` runs on hardcoded sample data
       (`lib/contacts.ts`). Build a unified Supabase contacts table (owner/buyer/
       tenant/landlord roles + owned listings + demand) and swap `listContacts()` /
       `getContact()` to query it. Re-point owned-listing links to real IDs.
-- [ ] **`listing_type` is vestigial** — deal type is now derived from which price is
-      present; confirm nothing still depends on a stored `listing_type`.
+- [ ] **`listing_type` is a real authored field, NOT vestigial** — the source authors
+      Listings `S` explicitly: `Sale` / `Rent` / `Sale & Rent` / `Sale with Tenant` /
+      `Co - Agent`. Preserve it as the source of deal type (don't derive purely from price).
 - [ ] Confirm every detail route's ID matches its source key (listing_id, lead_id,
       contact id, and lead `listing_code` → real listing IDs) so cross-links resolve.
 
@@ -79,6 +81,14 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 - [ ] Desktop table + mobile cards both render; row click → correct detail
 - [ ] Detail: contact info (phone tel:, LINE, email, note), demand list, owned-listings list links to real listings
 - [ ] `แก้ไข`, `LINE`, `เพิ่มผู้ติดต่อ` actions wired
+
+### ⛔ Not yet designed (source tabs with no CRM surface)
+> Full schemas + enums in [DATA_MODEL.md](./DATA_MODEL.md). Plan these into the
+> remaining design steps before calling the UI phase done.
+- [ ] **Projects** — project knowledge base / persona cards (pros/cons, fees, flood, persona), linked from listings
+- [ ] **Last Match** — market-comparables ledger; surface on listing detail + as buyer-coaching tool
+- [ ] **Actions** — agent activity/effort log + KPI view (incl. unused recap/retro fields)
+- [ ] Decide back-office vs. CRM for remaining unreviewed tabs (Owner, New Lead, Zone, KPI Target, Spending, Comments, Dashboards)
 
 ### Cross-cutting
 - [ ] Money formatting (฿X ล้าน / ฿X,XXX / ฿X/ด.) correct across all views
