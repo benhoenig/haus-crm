@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
-import { type Contact, type ContactRole, ROLE_LABEL, ROLE_TONE } from "@/lib/contacts";
+import { type Contact, type ContactRole, ROLE_LABEL, ROLE_TONE, visibleContacts } from "@/lib/contacts";
+import { useRbac } from "@/components/RbacProvider";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
@@ -26,12 +27,21 @@ const SORT_VALUE: Record<string, (c: Contact) => number | string | null> = {
 
 export function ContactsBrowser({ contacts }: { contacts: Contact[] }) {
   const router = useRouter();
+  const { currentUser, can } = useRbac();
   const [q, setQ] = React.useState("");
   const [role, setRole] = React.useState<"all" | ContactRole>("all");
   const { sort, onSort } = useSort();
 
+  // Contact privacy: unless you can view all, you only see contacts you created
+  // or are assigned to.
+  const canViewAll = can("contacts.view_all");
+  const scoped = React.useMemo(
+    () => visibleContacts(contacts, currentUser.name, canViewAll),
+    [contacts, currentUser.name, canViewAll]
+  );
+
   const query = q.trim().toLowerCase();
-  const filtered = contacts
+  const filtered = scoped
     .filter((c) => role === "all" || c.roles.includes(role))
     .filter(
       (c) =>
@@ -70,7 +80,7 @@ export function ContactsBrowser({ contacts }: { contacts: Contact[] }) {
         </div>
         <div className="flex gap-1.5 flex-wrap ml-auto items-center">
           {chips.map((c) => {
-            const n = c.key === "all" ? contacts.length : contacts.filter((x) => x.roles.includes(c.key as ContactRole)).length;
+            const n = c.key === "all" ? scoped.length : scoped.filter((x) => x.roles.includes(c.key as ContactRole)).length;
             return (
               <button
                 key={c.key}
@@ -88,6 +98,12 @@ export function ContactsBrowser({ contacts }: { contacts: Contact[] }) {
           })}
         </div>
       </div>
+
+      {!canViewAll && (
+        <div className="px-3 py-1.5 text-label text-text-subtle border-b border-border bg-surface-2">
+          แสดงเฉพาะผู้ติดต่อที่คุณสร้างหรือได้รับมอบหมาย
+        </div>
+      )}
 
       {list.length === 0 ? (
         <div className="p-10 text-center text-small text-text-subtle">ไม่พบผู้ติดต่อ</div>

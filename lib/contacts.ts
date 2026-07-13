@@ -51,6 +51,10 @@ export interface Contact {
   line: string | null;
   email: string | null;
   note: string | null;
+  /** Owner of the record (agent name) — drives the privacy rule. */
+  createdBy: string;
+  /** Agent the contact is assigned to (agent name), if any. */
+  assignedTo: string | null;
   owned: ContactOwned[];
   demand: ContactDemand[];
 }
@@ -60,6 +64,8 @@ const CONTACTS: Contact[] = [
     id: "c-thana",
     name: "คุณธนา มั่งมี",
     roles: ["owner"],
+    createdBy: "Stone",
+    assignedTo: "Stone",
     phone: "089-500-5000",
     line: "thana.m",
     email: "thana@example.com",
@@ -74,6 +80,8 @@ const CONTACTS: Contact[] = [
     id: "c-napha",
     name: "คุณนภา ศรีสุข",
     roles: ["buyer"],
+    createdBy: "Q",
+    assignedTo: "Q",
     phone: "082-111-0011",
     line: "napha.s",
     email: null,
@@ -94,6 +102,8 @@ const CONTACTS: Contact[] = [
     id: "c-james",
     name: "คุณเจมส์ วิลสัน",
     roles: ["buyer"],
+    createdBy: "Stone",
+    assignedTo: "Stone",
     phone: "082-103-0003",
     line: "jameswil",
     email: "james@example.com",
@@ -114,6 +124,8 @@ const CONTACTS: Contact[] = [
     id: "c-weera",
     name: "คุณวีระ ตั้งใจดี",
     roles: ["owner", "buyer"],
+    createdBy: "Mhow",
+    assignedTo: "Mhow",
     phone: "082-105-0005",
     line: "weera.t",
     email: null,
@@ -134,6 +146,8 @@ const CONTACTS: Contact[] = [
     id: "c-pimjai",
     name: "คุณพิมพ์ใจ รักบ้าน",
     roles: ["tenant"],
+    createdBy: "Q",
+    assignedTo: "Q",
     phone: "082-104-0004",
     line: "pimjai",
     email: null,
@@ -154,6 +168,8 @@ const CONTACTS: Contact[] = [
     id: "c-somchai",
     name: "คุณสมชาย ใจดี",
     roles: ["landlord"],
+    createdBy: "Stone",
+    assignedTo: "Stone",
     phone: "081-222-3333",
     line: "somchai.j",
     email: null,
@@ -169,4 +185,18 @@ export function listContacts(): Contact[] {
 
 export function getContact(id: string): Contact | null {
   return CONTACTS.find((c) => c.id === id) ?? null;
+}
+
+/**
+ * Contact privacy: a contact is hidden unless the viewer created it or it's
+ * assigned to them. `canViewAll` (contacts.view_all) bypasses the rule for
+ * Admin/CEO. Managers/team scoping is handled at wiring time.
+ */
+export function visibleContacts(
+  contacts: Contact[],
+  viewerName: string,
+  canViewAll: boolean
+): Contact[] {
+  if (canViewAll) return contacts;
+  return contacts.filter((c) => c.createdBy === viewerName || c.assignedTo === viewerName);
 }
