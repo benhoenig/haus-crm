@@ -214,9 +214,18 @@ Leader · Agent · HR — the latter five seeded **empty on purpose** (duties de
 toggling in the UI, not assumed). Note: Listing Support's duties are **undefined** pending
 the client — left blank.
 
-**Still to build:** app-wide gating driven by `can()` + a **"view as" switcher** to preview
-a role (the RolesManager defines access; wiring it into nav/FAB/pages is the next step);
-plus a **Team/HR** page and an **Admin lead-assignment** view once those roles are defined.
+**Built (design-first):** app-wide **gating** via `can()` (`RbacProvider` — shared store
+so RolesManager edits live-change access) + a **"view as" switcher** in the sidebar;
+nav items + the FAB carry permission keys. **Team/HR** (`/team`, commission column gated
+on `financials.view`) and **Admin lead-assignment** (`/assign`) surfaces. **Contact
+privacy** enforced: `contacts.createdBy/assignedTo` + `visibleContacts()` scope the list to
+the viewer unless `contacts.view_all`. Wiring replaces the in-memory store + view-as with
+the authenticated session and real RLS.
+
+**Momentum layer built:** `/today` (Daily Plan) + Targets (`lib/momentum.ts`), with the
+activity-log **auto-bridge** live (activity-source targets compute from the log; manual/
+pipeline use +1). Surfaced on `/today` and `/performance`. New tables to wire: `targets`,
+`tasks`, `employees` (+ `contacts.created_by/assigned_to`).
 
 ---
 

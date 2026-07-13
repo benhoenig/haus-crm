@@ -80,6 +80,7 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 - [ ] Role filter-chips (เจ้าของ/ผู้ซื้อ/ผู้เช่า/ปล่อยเช่า) with correct counts
 - [ ] Desktop table + mobile cards both render; row click → correct detail
 - [ ] Detail: contact info (phone tel:, LINE, email, note), demand list, owned-listings list links to real listings
+- [ ] **Contact privacy**: `createdBy`/`assignedTo` enforced (own/assigned unless `contacts.view_all`) — wire to RLS + real created_by/assigned_to
 - [ ] `แก้ไข`, `LINE`, `เพิ่มผู้ติดต่อ` actions wired
 
 ### Projects (`/projects`)  ⚠️ *sample data (`lib/projects.ts`)*
@@ -100,18 +101,28 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 - [ ] **Unified activity table** wired; FAB `LogActivity` actually writes a row
 - [ ] Action taxonomy canonicalized (23 source values → groups; Show/Showing, Reels dupes collapsed)
 - [ ] FAB tags **lead OR listing**; tagged = count-1 timeline touch, untagged = KPI tally
-- [ ] `เพิ่มลีด` FAB writes a lead (currently stubbed)
 - [ ] Same rows appear in listing/lead **detail timelines** AND the KPI aggregate
-- [ ] **Role-gate** FABs + `/settings` to agents/CEO once auth lands (currently global)
+
+### แผนวันนี้ / Targets — Momentum (`/today`, `/performance`)  ⚠️ *sample data (`lib/momentum.ts`)*
+- [ ] Wire `tasks` + `targets` tables (per agent, per month); key to the session user (not fixed "Stone")
+- [ ] Daily plan: date nav, completion ring, add/toggle/reorder persist; task type + linked target + entity
+- [ ] **Auto-bridge**: activity-source targets compute from the real activities table; manual/pipeline +1 persists
+- [ ] Targets: official (manager-set) vs stretch (agent) write paths; ties to KPI-target templates
+
+### Team / บุคคล (`/team`)  ⚠️ *sample data (`lib/team.ts`)*
+- [ ] Wire `employees` table (roles via user_roles, zone, status, joined, commission); effort from activities
+- [ ] **Commission column gated on `financials.view`** (HR without it, incl. payroll-later)
+
+### มอบหมาย Lead (`/assign`)  ⚠️ *stubbed assign*
+- [ ] Assign writes `sale_id` on the lead; unassigned filter correct; gate on `leads.assign`
 
 ### Settings hub (`/settings`, Shelter-style single page)  ⚠️ *sample data + in-memory*
-- [ ] **Roles & Permissions** (`lib/rbac.ts`): persist roles/permissions/user-roles; `can()` gating app-wide + a "view as" role switcher; gate `/settings` + FABs by permission
+- [ ] **Roles & Permissions** (`lib/rbac.ts`): persist roles/permissions/user-roles; replace the in-memory `RbacProvider` + view-as with the auth session; enforce `can()` at the **page/server** level too (nav + FAB gating already client-side)
 - [ ] **Zones** (`lib/zones.ts` → `zone`): wire table; `+ เพิ่มโซน` / row edit write (CEO)
-- [ ] **Master-data sections** (Property Types, Action types, KPI Targets): currently เร็ว ๆ นี้ stubs — build + wire as CEO-governed vocabularies
+- [ ] **Master-data** (Property Types, Action types, KPI Targets): persist edits as CEO-governed vocabularies
 
 ### ⛔ Still not designed
-- [ ] Decide back-office vs. CRM for remaining unreviewed tabs (Owner, New Lead, KPI Target, Spending, Comments, Dashboards)
-- [ ] Master-data admin for the other vocabularies (Property Type, Action types, KPI Target) alongside Zones
+- [ ] Decide back-office vs. CRM for remaining unreviewed tabs (New Lead, Spending, Comments, Dashboards)
 
 ### Cross-cutting
 - [ ] Money formatting (฿X ล้าน / ฿X,XXX / ฿X/ด.) correct across all views
