@@ -11,6 +11,7 @@ import {
   SAMPLE_LISTING_OPTIONS,
 } from "@/lib/actions";
 import { Avatar } from "@/components/ui/Avatar";
+import { useRbac } from "@/components/RbacProvider";
 import { cn } from "@/lib/cn";
 
 // UI-first: the FAB does NOT write yet. On submit it builds the activity row shape
@@ -23,7 +24,9 @@ import { cn } from "@/lib/cn";
 
 const todayISO = "2026-07-13"; // stubbed "today" (no Date in this design build)
 
-export function LogActivity({ agent = "Stone" }: { agent?: string }) {
+export function LogActivity() {
+  const { can, currentUser } = useRbac();
+  const agent = currentUser.name;
   const [open, setOpen] = React.useState(false);
   const [action, setAction] = React.useState("");
   const [entityKind, setEntityKind] = React.useState<"lead" | "listing">("lead"); // for "either"
@@ -33,6 +36,9 @@ export function LogActivity({ agent = "Stone" }: { agent?: string }) {
   const [count, setCount] = React.useState(1);
   const [remark, setRemark] = React.useState("");
   const [done, setDone] = React.useState<string | null>(null);
+
+  // Gated: only roles with the activity.log permission see the logger FAB.
+  const allowed = can("activity.log");
 
   const attach: AttachMode = actionAttach(action);
   const isNote = action === NOTE_ACTION;
@@ -96,6 +102,8 @@ export function LogActivity({ agent = "Stone" }: { agent?: string }) {
 
   const field =
     "w-full h-9 px-3 rounded-md border border-border-strong bg-surface text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+
+  if (!allowed) return null;
 
   return (
     <>

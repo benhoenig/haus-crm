@@ -3,6 +3,7 @@ import { IBM_Plex_Sans_Thai, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNavProvider } from "@/components/MobileNav";
+import { RbacProvider } from "@/components/RbacProvider";
 import { LogActivity } from "@/components/LogActivity";
 
 const plexSansThai = IBM_Plex_Sans_Thai({
@@ -28,14 +29,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="th" className={`${plexSansThai.variable} ${plexMono.variable}`}>
       <body>
-        <MobileNavProvider>
-          <div className="grid grid-cols-1 lg:grid-cols-[228px_1fr] min-h-screen">
-            <Sidebar />
-            <main className="min-w-0 flex flex-col">{children}</main>
-          </div>
-          {/* Quick activity logger. Global for now; role-gate to agents once auth lands. */}
-          <LogActivity />
-        </MobileNavProvider>
+        <RbacProvider>
+          <MobileNavProvider>
+            <div className="grid grid-cols-1 lg:grid-cols-[228px_1fr] min-h-screen">
+              <Sidebar />
+              <main className="min-w-0 flex flex-col">{children}</main>
+            </div>
+            {/* Quick activity logger — gated to roles with the activity.log permission. */}
+            <LogActivity />
+          </MobileNavProvider>
+        </RbacProvider>
       </body>
     </html>
   );

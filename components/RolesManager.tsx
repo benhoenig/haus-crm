@@ -2,26 +2,16 @@
 
 import * as React from "react";
 import { Plus, Trash2, Lock, ShieldCheck, Check, Users } from "lucide-react";
-import {
-  PERMISSION_GROUPS,
-  SEED_ROLES,
-  SEED_USERS,
-  roleUserCount,
-  type Role,
-  type OrgUser,
-} from "@/lib/rbac";
+import { PERMISSION_GROUPS, roleUserCount } from "@/lib/rbac";
+import { useRbac } from "@/components/RbacProvider";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
 
 export function RolesManager() {
-  const [roles, setRoles] = React.useState<Role[]>(() =>
-    SEED_ROLES.map((r) => ({ ...r, permissions: [...r.permissions] }))
-  );
-  const [users, setUsers] = React.useState<OrgUser[]>(() =>
-    SEED_USERS.map((u) => ({ ...u, roleIds: [...u.roleIds] }))
-  );
-  const [selectedId, setSelectedId] = React.useState<string>(SEED_ROLES[0].id);
+  // Shared store — edits here immediately change what each persona sees (view-as).
+  const { roles, setRoles, users, setUsers } = useRbac();
+  const [selectedId, setSelectedId] = React.useState<string>("ceo");
   const [newRoleSeq, setNewRoleSeq] = React.useState(1);
 
   const selected = roles.find((r) => r.id === selectedId) ?? roles[0];
