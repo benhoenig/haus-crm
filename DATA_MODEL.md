@@ -183,6 +183,84 @@ How the backlog surfaces get built into the CRM (decided with Ben):
 
 ---
 
+## Roles & access model (role-based, design-first)
+
+**Decided:** the CRM models **6 roles** — `CEO` · `Admin` · `Listing Support` ·
+`Sales Leader` · `Agent` · `HR`. Build it **UI-first**: a `role` context + a "view as"
+switcher (a stand-in for the auth session), role-gated nav/actions, and data-scoping over
+the sample data. **Real auth/session/RLS is the wiring agent's job** — we hand them the
+role model + one seam to plug the session into, so RLS isn't guesswork. (Reference pattern:
+W Property's `role` state + `canX` gates + "view as" switcher.)
+
+**Decided data rule — contact privacy:** a contact is hidden unless you **created it** or
+it's **assigned to you**. Scope by role: Agent = own/assigned only · Sales Leader = their
+team's · Admin/CEO = all. *(The Leader/Admin/CEO tiers are proposed — confirm.)*
+
+**Proposed capability matrix (draft — confirm/correct):**
+
+| Role | Sees (nav) | Data scope | Can do |
+| :-- | :-- | :-- | :-- |
+| **CEO** | everything + ตั้งค่า + Team/HR | all | govern master data, all KPI/targets, everything |
+| **Sales Leader** | Dashboard, Pipeline, Lead, ทรัพย์, โครงการ, Last Match, ผู้ติดต่อ, ผลงาน | **their team's** leads/contacts/activity · shared inventory | coach, reassign within team, **set team targets**, log activity |
+| **Agent** | same as Leader, own-scoped | shared inventory + leads · **contacts own/assigned only** · own activity | work own deals, log activity, **add personal stretch targets** |
+| **Admin** | Lead, ผู้ติดต่อ, ทรัพย์, Dashboard | **all** leads/contacts | distribute/assign leads, manage contacts, data entry |
+| **Listing Support** | ทรัพย์, โครงการ, Last Match, ผลงาน | all listings/projects | edit listings, marketing/portal, add comps, log listing activity |
+| **HR** | Team/HR, ผลงาน | employees + effort/activity (**no deal $**) | manage people, KPI targets, review effort |
+
+**Assumptions still to confirm:** (1) Sales Leader scoped to their own team (needs a
+manager/team field on employees). (2) HR sees effort/targets but **not** financials. (3) FAB
+logger = Agent + Sales Leader + Listing Support only. (4) Master data (Zones, vocabularies)
+= CEO only; Admin handles lead assignment + contacts, not vocabularies. (5) Contact-privacy
+tiers above.
+
+**Implied new surfaces:** a **Team/HR** page (employees, roles, targets) and an **Admin
+lead-assignment** view — neither built yet. "Role-based, UI-first" = role scaffolding
+(view-as + gating + scoping) **plus** these two surfaces.
+
+---
+
+## Momentum layer — Daily Plan + Targets (planned, from Solo Gang)
+
+Adapt the **Solo Gang "Momentum"** model (`~/Desktop/Ben/Business/Consult/Client/Solo
+Gang`) onto HAUS. Its core loop: **Daily Plan → Goal**, where completing a plan task
+bumps a monthly target. HAUS already has the middle piece Solo Gang lacks — the
+**unified Activity log** — so the bridge can be *automatic*:
+
+```
+แผนวันนี้ (daily plan task) → บันทึก FAB (log the CRM activity) → เป้าหมาย auto +1 (target)
+```
+
+**Three layers to add (design-first, sample data):**
+
+- **เป้าหมาย / Targets** — monthly, per agent, per metric. `kind` = count / ฿ / check.
+  `source` = `activity` (auto-tracked: `current` = count of matching activity rows this
+  month, tied to an `activity_type` like Call/Show/Owner Visit) · `pipeline` (derived:
+  Wins, commission) · `manual` (+1 button). Ties to the source **`KPI Target`** tab.
+  **Owner = both:** manager sets the *official* target; agent adds *personal stretch*
+  goals on top (visually distinguished).
+- **แผนวันนี้ / Daily Plan** — per agent/day: task list + completion ring. Each task has
+  a **type** (awareness split — real-estate cut of Solo Gang's building/working/personal,
+  e.g. หาโอกาส / งานประจำ / ส่วนตัว), and optional links to a **target** + a **CRM
+  activity type + entity** (lead/listing). Recurring rules + carry-tomorrow like Solo Gang.
+- **Auto-bridge (hybrid, decided):** activity-linked targets auto-track from the activity
+  log (no double entry); non-activity targets use a manual +1 on linked-task completion.
+  Streak/"sprint" = consistency of daily-plan completion.
+
+**New surfaces:** `แผนวันนี้ / Today` page (daily plan) · a **Targets** setter/among
+`/performance` · `/performance` (ผลงาน) evolves from "what happened" → **"progress vs
+target."** Optional later: streak/leaderboard momentum skin.
+
+**Role ties (see role matrix — still to confirm):** *setting* official targets = CEO /
+Sales Leader; *executing* the plan + adding stretch goals = Agent. Makes ผลงาน the
+coaching surface (leader sees team vs target).
+
+**New tables (wire later):** `targets` (agent, month, metric, kind, target, current,
+source, activity_type?, owner) · `tasks` (agent, date, title, done, order, type,
+target_id?, activity_type?, related_lead_id?, related_listing_id?, recurring). Auto-track
+= an aggregation over `activities`, not a stored duplicate.
+
+---
+
 ## Import / normalization must-fixes (DB-wiring phase)
 
 - [ ] **Weak joins:** Projects (`Project ID` unpopulated) and Last Match link by
