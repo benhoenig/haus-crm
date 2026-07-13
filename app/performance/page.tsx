@@ -4,6 +4,8 @@ import { Topbar } from "@/components/Topbar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Stat } from "@/components/ui/Stat";
 import { Pill } from "@/components/ui/Pill";
+import { TargetsBoard } from "@/components/TargetsBoard";
+import { currentAgent } from "@/lib/momentum";
 import { formatThaiDate } from "@/lib/format";
 import {
   listActivities,
@@ -36,6 +38,9 @@ export default function PerformancePage() {
           <Stat label="แท็กทรัพย์" value={s.listingTagged} hint="ลงในไทม์ไลน์ทรัพย์" />
           <Stat label="ไม่ระบุ (KPI รวม)" value={s.untagged} hint="งานทั่วไป / ยอดรวม" />
         </div>
+
+        {/* Progress vs target — activity-source targets auto-track from the feed below */}
+        <TargetsBoard agent={currentAgent()} title="ความคืบหน้าเทียบเป้าหมาย" />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 items-start">
           {/* Recent activity feed — the unified log */}

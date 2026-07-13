@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
+  CalendarCheck,
   Columns3,
   Users,
   Building2,
@@ -35,7 +36,10 @@ export interface NavGroup {
 export const NAV: NavGroup[] = [
   {
     title: "ภาพรวม",
-    items: [{ href: "/", label: "แดชบอร์ด", icon: LayoutDashboard }],
+    items: [
+      { href: "/", label: "แดชบอร์ด", icon: LayoutDashboard },
+      { href: "/today", label: "แผนวันนี้", icon: CalendarCheck, perm: ["performance.view_own", "performance.view_team"] },
+    ],
   },
   {
     title: "ดีล",
