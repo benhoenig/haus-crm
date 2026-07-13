@@ -69,27 +69,32 @@ function SidebarBody() {
       </div>
 
       {/* Nav */}
-      <nav className="px-2 pt-4 flex-1">
-        <div className="px-2 text-label uppercase text-text-subtle mb-1">เมนู</div>
-        {NAV.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2.5 h-9 px-2 rounded-md text-body transition-colors",
-                active
-                  ? "bg-accent-wash text-text font-medium"
-                  : "text-text-muted hover:bg-surface-hover hover:text-text"
-              )}
-            >
-              <Icon size={17} strokeWidth={1.75} className={active ? "text-accent" : ""} />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="px-2 pt-3 pb-2 flex-1 overflow-y-auto">
+        {NAV.map((group) => (
+          <div key={group.title} className="mb-3 last:mb-0">
+            <div className="px-2 text-label uppercase text-text-subtle mb-1">{group.title}</div>
+            {group.items.map((item) => {
+              const active =
+                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-2.5 h-9 px-2 rounded-md text-body transition-colors",
+                    active
+                      ? "bg-accent-wash text-text font-medium"
+                      : "text-text-muted hover:bg-surface-hover hover:text-text"
+                  )}
+                >
+                  <Icon size={17} strokeWidth={1.75} className={active ? "text-accent" : ""} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer user */}

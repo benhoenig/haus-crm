@@ -82,13 +82,35 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 - [ ] Detail: contact info (phone tel:, LINE, email, note), demand list, owned-listings list links to real listings
 - [ ] `แก้ไข`, `LINE`, `เพิ่มผู้ติดต่อ` actions wired
 
-### ⛔ Not yet designed (source tabs with no CRM surface)
-> Full schemas + enums in [DATA_MODEL.md](./DATA_MODEL.md). Plan these into the
-> remaining design steps before calling the UI phase done.
-- [ ] **Projects** — project knowledge base / persona cards (pros/cons, fees, flood, persona), linked from listings
-- [ ] **Last Match** — market-comparables ledger; surface on listing detail + as buyer-coaching tool
-- [ ] **Actions** — agent activity/effort log + KPI view (incl. unused recap/retro fields)
-- [ ] Decide back-office vs. CRM for remaining unreviewed tabs (Owner, New Lead, Zone, KPI Target, Spending, Comments, Dashboards)
+### Projects (`/projects`)  ⚠️ *sample data (`lib/projects.ts`)*
+- [ ] Backed by a real projects table; swap `listProjects`/`getProject`/`getProjectByName`
+- [ ] Search + zone filter chips with correct counts
+- [ ] Card grid + completeness % render; row click → detail
+- [ ] Detail: specs, unit types, pros/cons, persona, fees & juristic, flood
+- [ ] Project panel on **listing detail** resolves by project name (fix name→ID join)
+- [ ] `แก้ไข` / “ทรัพย์ในโครงการ” filtered link wired
+
+### Last Match (`/last-match`)  ⚠️ *sample data (`lib/lastMatch.ts` → `main_7_last_match`)*
+- [ ] Wire to `main_7_last_match`; swap `listMatches`/`getComparables`
+- [ ] Search + close-type filter chips; **column sorting** (date/project/zone/price/close/agent)
+- [ ] Comps panel on **listing detail** filters by zone correctly
+- [ ] Size (sq_wa/sq_m) + price format across mixed source formats
+
+### Actions / KPI (`/performance`)  ⚠️ *sample data + stubbed logging (`lib/actions.ts`)*
+- [ ] **Unified activity table** wired; FAB `LogActivity` actually writes a row
+- [ ] Action taxonomy canonicalized (23 source values → groups; Show/Showing, Reels dupes collapsed)
+- [ ] FAB tags **lead OR listing**; tagged = count-1 timeline touch, untagged = KPI tally
+- [ ] `เพิ่มลีด` FAB writes a lead (currently stubbed)
+- [ ] Same rows appear in listing/lead **detail timelines** AND the KPI aggregate
+- [ ] **Role-gate** FABs + `/settings` to agents/CEO once auth lands (currently global)
+
+### Settings · Zones (`/settings/zones`)  ⚠️ *sample data (`lib/zones.ts` → `zone`)*
+- [ ] Wire to `zone` table; `+ เพิ่มโซน` / row edit write (CEO only)
+- [ ] Zone becomes the single controlled vocabulary listings/leads/last-match reference
+
+### ⛔ Still not designed
+- [ ] Decide back-office vs. CRM for remaining unreviewed tabs (Owner, New Lead, KPI Target, Spending, Comments, Dashboards)
+- [ ] Master-data admin for the other vocabularies (Property Type, Action types, KPI Target) alongside Zones
 
 ### Cross-cutting
 - [ ] Money formatting (฿X ล้าน / ฿X,XXX / ฿X/ด.) correct across all views

@@ -12,6 +12,9 @@ import {
   Image as ImageIcon,
   Users,
   History,
+  Landmark,
+  ChevronRight,
+  Handshake,
 } from "lucide-react";
 import { Topbar } from "@/components/Topbar";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +23,10 @@ import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
 import { getListing } from "@/lib/queries";
-import { formatBaht, formatRent, formatNumber, daysOnMarketLabel, dealType } from "@/lib/format";
+import { getProjectByName } from "@/lib/projects";
+import { getComparables, closeTypeTone, sizeSummary } from "@/lib/lastMatch";
+import { getActivitiesForListing } from "@/lib/actions";
+import { formatBaht, formatRent, formatNumber, formatThaiDate, daysOnMarketLabel, dealType } from "@/lib/format";
 import { listingStatusDot, potentialTone } from "@/lib/status";
 import { cn } from "@/lib/cn";
 
@@ -43,6 +49,9 @@ export default async function ListingDetailPage({
   if (!listing) notFound();
 
   const deal = dealType(listing.asking_price, listing.rental_price);
+  const project = getProjectByName(listing.project_name_eng);
+  const comps = getComparables(listing.zone);
+  const activities = getActivitiesForListing(listing.listing_id);
 
   return (
     <>
@@ -146,6 +155,84 @@ export default async function ListingDetailPage({
               </Card>
             </div>
 
+            {/* Comparable closes nearby (Last Match) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Handshake size={16} strokeWidth={1.75} className="text-text-muted" />
+                  ทรัพย์เทียบเคียง
+                </CardTitle>
+                <Link href="/last-match" className="text-small text-accent hover:underline">
+                  ดูทั้งหมด
+                </Link>
+              </CardHeader>
+              {comps.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {comps.map((m) => (
+                    <div key={m.last_match_id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-body font-medium truncate">{m.project_name ?? "—"}</div>
+                        <div className="text-label text-text-subtle num">
+                          {sizeSummary(m)}
+                          {m.date_created && <span className="ml-2">{formatThaiDate(m.date_created)}</span>}
+                        </div>
+                      </div>
+                      {m.close_type && (
+                        <Pill tone={closeTypeTone(m.close_type)}>{m.close_type}</Pill>
+                      )}
+                      <div className="num text-body font-semibold whitespace-nowrap w-20 text-right">
+                        {formatBaht(m.last_match_price)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <CardContent>
+                  <Empty icon={Handshake}>ยังไม่มีทรัพย์เทียบเคียงในโซนนี้</Empty>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* Activity timeline — the entity view of the unified activity log */}
+            <Card>
+              <CardHeader>
+                <CardTitle>กิจกรรมล่าสุด</CardTitle>
+                <Link href="/performance" className="text-small text-accent hover:underline">
+                  ดูทั้งหมด
+                </Link>
+              </CardHeader>
+              {activities.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {activities.map((a) => (
+                    <div key={a.id} className="flex items-start gap-3 px-4 py-3">
+                      <span className="mt-1.5 size-2 rounded-full bg-accent shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-body font-medium">{a.action}</span>
+                          {a.count > 1 && (
+                            <span className="num text-label text-text-subtle">×{a.count}</span>
+                          )}
+                        </div>
+                        {a.remark && (
+                          <p className="text-small text-text-muted mt-0.5">{a.remark}</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="num text-label text-text-subtle whitespace-nowrap">
+                          {formatThaiDate(a.date)}
+                        </div>
+                        <div className="num text-label text-text-subtle">{a.created_by}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <CardContent>
+                  <Empty icon={History}>ยังไม่มีกิจกรรมสำหรับทรัพย์นี้</Empty>
+                </CardContent>
+              )}
+            </Card>
+
             {/* Interested buyers — placeholder */}
             <Card>
               <CardHeader>
@@ -189,6 +276,53 @@ export default async function ListingDetailPage({
                   <span className="num">{daysOnMarketLabel(listing.days_on_market)}</span>
                 </Row>
               </CardContent>
+            </Card>
+
+            {/* Project knowledge — links to the full project page */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Landmark size={16} strokeWidth={1.75} className="text-text-muted" />
+                  โครงการ
+                </CardTitle>
+              </CardHeader>
+              {project ? (
+                <Link href={`/projects/${project.id}`} className="block group">
+                  <div className="p-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-body font-medium truncate group-hover:text-accent transition-colors">
+                          {project.name_thai}
+                        </div>
+                        <div className="text-small text-text-subtle truncate">{project.name_eng}</div>
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        strokeWidth={1.75}
+                        className="text-text-subtle group-hover:text-accent transition-colors shrink-0"
+                      />
+                    </div>
+                    {(project.pros || project.cons) && (
+                      <div className="flex flex-col gap-1 text-small border-t border-border pt-2.5">
+                        {project.pros && (
+                          <span className="text-text-muted line-clamp-1">
+                            <span className="text-green">+</span> {project.pros}
+                          </span>
+                        )}
+                        {project.cons && (
+                          <span className="text-text-muted line-clamp-1">
+                            <span className="text-red">−</span> {project.cons}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ) : (
+                <div className="p-4 text-small text-text-subtle">
+                  {listing.project_name_eng ?? "ไม่ระบุโครงการ"}
+                </div>
+              )}
             </Card>
 
             {/* Owner (real data) */}
