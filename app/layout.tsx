@@ -4,7 +4,6 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNavProvider } from "@/components/MobileNav";
 import { LogActivity } from "@/components/LogActivity";
-import { LeadIntakeFab } from "@/components/LeadIntakeFab";
 
 const plexSansThai = IBM_Plex_Sans_Thai({
   subsets: ["thai", "latin"],
@@ -34,8 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Sidebar />
             <main className="min-w-0 flex flex-col">{children}</main>
           </div>
-          {/* Agent quick-actions. Global for now; role-gate to agents once auth lands. */}
-          <LeadIntakeFab />
+          {/* Quick activity logger. Global for now; role-gate to agents once auth lands. */}
           <LogActivity />
         </MobileNavProvider>
       </body>
