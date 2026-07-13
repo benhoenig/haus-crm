@@ -1,32 +1,34 @@
 "use client";
 
 import * as React from "react";
-import { ShieldCheck, Map, Home, Activity, Target, Info, Clock } from "lucide-react";
+import { ShieldCheck, Map, Home, Activity, Target, Info } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { type Zone } from "@/lib/zones";
 import { RolesManager } from "@/components/RolesManager";
 import { ZonesAdmin } from "@/components/ZonesAdmin";
+import {
+  PropertyTypesManager,
+  ActionTypesManager,
+  KpiTemplatesManager,
+} from "@/components/MasterDataManagers";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
 
 type SectionKey = "roles" | "zones" | "property_types" | "action_types" | "kpi";
-type Section = { key: SectionKey; label: string; icon: LucideIcon; soon?: boolean };
+type Section = { key: SectionKey; label: string; icon: LucideIcon };
 
 // Single settings hub (Shelter-style): add a section here and it appears in the sub-nav.
-// The master-data vocabularies (property types, action types, KPI targets) are stubbed so
-// the growth path is visible — see DATA_MODEL.md "Master-data / admin area".
+// The master-data vocabularies are the CEO-governed canonical lists everything references.
 const SECTIONS: Section[] = [
   { key: "roles", label: "บทบาท & สิทธิ์", icon: ShieldCheck },
   { key: "zones", label: "โซน", icon: Map },
-  { key: "property_types", label: "ประเภททรัพย์", icon: Home, soon: true },
-  { key: "action_types", label: "ประเภทกิจกรรม", icon: Activity, soon: true },
-  { key: "kpi", label: "เป้าหมาย KPI", icon: Target, soon: true },
+  { key: "property_types", label: "ประเภททรัพย์", icon: Home },
+  { key: "action_types", label: "ประเภทกิจกรรม", icon: Activity },
+  { key: "kpi", label: "เป้าหมาย KPI", icon: Target },
 ];
 
 export function SettingsView({ zones }: { zones: Zone[] }) {
   const [section, setSection] = React.useState<SectionKey>("roles");
-  const active = SECTIONS.find((s) => s.key === section) ?? SECTIONS[0];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-4 items-start">
@@ -49,9 +51,6 @@ export function SettingsView({ zones }: { zones: Zone[] }) {
               className={section === s.key ? "text-accent" : ""}
             />
             {s.label}
-            {s.soon && (
-              <Clock size={12} strokeWidth={1.75} className="text-text-subtle ml-auto shrink-0" />
-            )}
           </button>
         ))}
       </nav>
@@ -60,7 +59,30 @@ export function SettingsView({ zones }: { zones: Zone[] }) {
       <div className="flex flex-col gap-4 min-w-0">
         {section === "roles" && <RolesSection />}
         {section === "zones" && <ZonesSection zones={zones} />}
-        {active.soon && <SoonSection label={active.label} />}
+        {section === "property_types" && (
+          <>
+            <SectionHeader title="ประเภททรัพย์" desc="รายการประเภททรัพย์กลาง · จัดการโดย CEO" />
+            <PropertyTypesManager />
+          </>
+        )}
+        {section === "action_types" && (
+          <>
+            <SectionHeader
+              title="ประเภทกิจกรรม"
+              desc="ชุดกิจกรรมกลางที่ปุ่มบันทึกและหน้าผลงานใช้ · จัดการโดย CEO"
+            />
+            <ActionTypesManager />
+          </>
+        )}
+        {section === "kpi" && (
+          <>
+            <SectionHeader
+              title="เป้าหมาย KPI"
+              desc="เทมเพลตเป้าหมายที่หัวหน้าใช้ตั้งเป้าให้ทีม (เชื่อมกับกิจกรรม/ไปป์ไลน์)"
+            />
+            <KpiTemplatesManager />
+          </>
+        )}
       </div>
     </div>
   );
@@ -126,17 +148,3 @@ function ZonesSection({ zones }: { zones: Zone[] }) {
   );
 }
 
-function SoonSection({ label }: { label: string }) {
-  return (
-    <>
-      <SectionHeader title={label} desc="ชุดข้อมูลอ้างอิงกลาง · จัดการโดย CEO" />
-      <Card className="p-10 flex flex-col items-center justify-center gap-2 text-center">
-        <Clock size={24} strokeWidth={1.5} className="text-text-subtle" />
-        <p className="text-body font-medium">เร็ว ๆ นี้</p>
-        <p className="text-small text-text-subtle max-w-sm">
-          จะเป็นชุดคำศัพท์กลางที่ CEO จัดการ (เช่นเดียวกับโซน) เพื่อให้ทั้งระบบอ้างอิงค่าเดียวกัน
-        </p>
-      </Card>
-    </>
-  );
-}
