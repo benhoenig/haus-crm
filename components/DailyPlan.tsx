@@ -66,6 +66,9 @@ export function DailyPlan({ agent }: { agent: string }) {
   const add = () => {
     const title = draft.trim();
     if (!title) return;
+    // TODO (wiring): smart time parse — if the quick-add text starts with a time
+    // (e.g. "10.00 นั่งสมาธิ" / "10:00 นั่งสมาธิ"), extract HH:MM into startTime and
+    // strip it from the title. Quick-add only. See HANDOVER_CHECKLIST → Momentum.
     const order = Math.max(-1, ...dayTasks.map((t) => t.order)) + 1;
     setTasks((ts) => [
       ...ts,

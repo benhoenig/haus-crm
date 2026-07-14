@@ -106,6 +106,7 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 ### แผนวันนี้ / Targets — Momentum (`/today`, `/performance`)  ⚠️ *sample data (`lib/momentum.ts`)*
 - [ ] Wire `tasks` + `targets` tables (per agent, per month); key to the session user (not fixed "Stone")
 - [ ] Daily plan: date nav, completion ring, add/toggle/reorder persist; task type + linked target + entity
+- [ ] **Quick-add smart time parse**: typing a leading time in the quick-add field (e.g. `10.00 นั่งสมาธิ` or `10:00 นั่งสมาธิ`) auto-sets the task's `startTime` and strips it from the title. Quick-add only (the advanced sheet already has a time field). Support `HH.MM`/`HH:MM`, optional; leave title as-is if no time prefix.
 - [ ] **Auto-bridge**: activity-source targets compute from the real activities table; manual/pipeline +1 persists
 - [ ] Targets: official (manager-set) vs stretch (agent) write paths; ties to KPI-target templates
 
