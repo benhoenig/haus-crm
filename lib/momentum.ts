@@ -38,6 +38,14 @@ export interface Target {
   owner: TargetOwner;
 }
 
+export type RecurFreq = "none" | "daily" | "weekdays" | "weekly" | "monthly";
+
+export interface TaskRepeat {
+  freq: RecurFreq;
+  weekdays?: number[]; // JS getDay() 0=Sun..6=Sat, for "weekly"
+  dayOfMonth?: number; // 1..31, for "monthly"
+}
+
 export interface Task {
   id: string;
   agent: string;
@@ -46,6 +54,8 @@ export interface Task {
   done: boolean;
   order: number;
   type: TaskType;
+  /** Advanced: free-text detail. */
+  notes?: string;
   /** Links this task to a monthly target. */
   targetId?: string;
   /** CRM activity logged on completion (drives the auto-bridge). */
@@ -54,7 +64,23 @@ export interface Task {
   relatedLeadName?: string;
   relatedListingId?: string;
   relatedListingName?: string;
+  /** Advanced: optional scheduled time (HH:MM). */
+  startTime?: string;
+  endTime?: string;
+  /** Advanced: recurrence rule (design-first: captured, not yet expanded to instances). */
+  repeat?: TaskRepeat | null;
 }
+
+export const RECUR_FREQ: Record<RecurFreq, { label: string }> = {
+  none: { label: "ไม่ซ้ำ" },
+  daily: { label: "ทุกวัน" },
+  weekdays: { label: "จ–ศ" },
+  weekly: { label: "ทุกสัปดาห์" },
+  monthly: { label: "ทุกเดือน" },
+};
+export const RECUR_ORDER: RecurFreq[] = ["none", "daily", "weekdays", "weekly", "monthly"];
+export const WEEKDAY_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+export const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon-first display
 
 const TARGETS: Target[] = [
   // Official — set by the manager.

@@ -6,14 +6,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  SlidersHorizontal,
   Target as TargetIcon,
   UserRound,
   Building2,
+  Clock,
+  Repeat,
+  StickyNote,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { RingProgress } from "@/components/ui/RingProgress";
 import { Input } from "@/components/ui/Input";
+import { TaskDetailSheet, type TaskDraft } from "@/components/TaskDetailSheet";
 import { formatThaiDate } from "@/lib/format";
 import {
   listTasks,
@@ -44,6 +49,10 @@ export function DailyPlan({ agent }: { agent: string }) {
   const [date, setDate] = React.useState(TODAY);
   const [draft, setDraft] = React.useState("");
   const [draftType, setDraftType] = React.useState<TaskType>("work");
+  const [sheet, setSheet] = React.useState<{ open: boolean; task: Task | null }>({
+    open: false,
+    task: null,
+  });
 
   const dayTasks = tasks
     .filter((t) => t.date === date)
@@ -67,6 +76,25 @@ export function DailyPlan({ agent }: { agent: string }) {
 
   const cycleDraftType = () =>
     setDraftType((t) => TASK_TYPE_ORDER[(TASK_TYPE_ORDER.indexOf(t) + 1) % TASK_TYPE_ORDER.length]);
+
+  // Advanced add / edit via the detail sheet.
+  const applyDraft = (d: TaskDraft) => {
+    if (sheet.task) {
+      const id = sheet.task.id;
+      setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...d } : t)));
+    } else {
+      const order = Math.max(-1, ...dayTasks.map((t) => t.order)) + 1;
+      setTasks((ts) => [
+        ...ts,
+        { id: `new_${ts.length}_${order}`, agent, date, done: false, order, ...d },
+      ]);
+    }
+  };
+  const deleteTask = () => {
+    if (!sheet.task) return;
+    const id = sheet.task.id;
+    setTasks((ts) => ts.filter((t) => t.id !== id));
+  };
 
   const rel = relLabel(date);
 
@@ -112,11 +140,16 @@ export function DailyPlan({ agent }: { agent: string }) {
 
         <ul className="divide-y divide-border">
           {dayTasks.map((t) => (
-            <TaskRow key={t.id} task={t} onToggle={() => toggle(t.id)} />
+            <TaskRow
+              key={t.id}
+              task={t}
+              onToggle={() => toggle(t.id)}
+              onEdit={() => setSheet({ open: true, task: t })}
+            />
           ))}
         </ul>
 
-        {/* Add task */}
+        {/* Add task — quick inline + advanced sheet */}
         <div className="flex items-center gap-2 p-3 border-t border-border">
           <button
             onClick={cycleDraftType}
@@ -134,6 +167,14 @@ export function DailyPlan({ agent }: { agent: string }) {
             className="flex-1"
           />
           <button
+            onClick={() => setSheet({ open: true, task: null })}
+            aria-label="เพิ่มแบบละเอียด"
+            title="ตั้งค่าเพิ่มเติม (เป้าหมาย เวลา ทำซ้ำ)"
+            className="size-8 grid place-items-center rounded-md border border-border-strong text-text-muted hover:bg-surface-2 transition-colors shrink-0"
+          >
+            <SlidersHorizontal size={15} strokeWidth={1.75} />
+          </button>
+          <button
             onClick={add}
             aria-label="เพิ่มงาน"
             className="size-8 grid place-items-center rounded-md bg-accent text-text-onaccent hover:bg-accent-hover transition-colors shrink-0"
@@ -142,12 +183,31 @@ export function DailyPlan({ agent }: { agent: string }) {
           </button>
         </div>
       </CardContent>
+
+      <TaskDetailSheet
+        open={sheet.open}
+        mode={sheet.task ? "edit" : "add"}
+        agent={agent}
+        initial={sheet.task}
+        onSubmit={applyDraft}
+        onDelete={deleteTask}
+        onClose={() => setSheet({ open: false, task: null })}
+      />
     </Card>
   );
 }
 
-function TaskRow({ task: t, onToggle }: { task: Task; onToggle: () => void }) {
+function TaskRow({
+  task: t,
+  onToggle,
+  onEdit,
+}: {
+  task: Task;
+  onToggle: () => void;
+  onEdit: () => void;
+}) {
   const target = getTarget(t.targetId);
+  const repeats = t.repeat && t.repeat.freq !== "none";
   return (
     <li className="flex items-start gap-3 px-4 py-2.5">
       <button
@@ -164,8 +224,25 @@ function TaskRow({ task: t, onToggle }: { task: Task; onToggle: () => void }) {
           </svg>
         )}
       </button>
-      <div className="min-w-0 flex-1">
-        <div className={cn("text-body", t.done && "line-through text-text-subtle")}>{t.title}</div>
+      <div
+        onClick={onEdit}
+        className="min-w-0 flex-1 cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onEdit()}
+      >
+        <div className="flex items-center gap-2">
+          <span className={cn("text-body", t.done && "line-through text-text-subtle")}>{t.title}</span>
+          {t.startTime && (
+            <span className="inline-flex items-center gap-0.5 text-label text-text-subtle num shrink-0">
+              <Clock size={11} strokeWidth={1.75} />
+              {t.startTime}
+              {t.endTime ? `–${t.endTime}` : ""}
+            </span>
+          )}
+          {repeats && <Repeat size={11} strokeWidth={1.75} className="text-text-subtle shrink-0" />}
+          {t.notes && <StickyNote size={11} strokeWidth={1.75} className="text-text-subtle shrink-0" />}
+        </div>
         <div className="flex flex-wrap items-center gap-1.5 mt-1">
           <Pill tone={TASK_TYPES[t.type].tone}>{TASK_TYPES[t.type].label}</Pill>
           {target && (
@@ -181,6 +258,7 @@ function TaskRow({ task: t, onToggle }: { task: Task; onToggle: () => void }) {
           {t.relatedListingId && (
             <Link
               href={`/listings/${t.relatedListingId}`}
+              onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center gap-1 text-label text-accent hover:underline"
             >
               <Building2 size={11} strokeWidth={1.75} /> {t.relatedListingName ?? t.relatedListingId}
