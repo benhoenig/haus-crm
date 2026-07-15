@@ -8,6 +8,10 @@
 >
 > Source workbook ID: `1sxgoXeyJ-bG_3NYo64sKvo1PxrA6yV5RsbDNXigB65M`
 > Documented: 2026-07-13 · Status: **design phase (DB not wired)**
+>
+> **Second source workbook: "HR Sheet"** (ID `1oJTQhWXUNj1ft78WY9aNvXLoTr5w1ApyN4mWMyQP0eY`,
+> 4 tabs) — the people/HR source of truth, separate from the listing workbook. Documented
+> 2026-07-14; drives `/team`. See [HR Sheet](#hr-sheet--people--zones--leave-2026-07-14).
 
 ---
 
@@ -21,6 +25,10 @@
 | **Last Match** | 118 | market-comps ledger | ⛔ **not designed yet** |
 | **Actions** | 289 | agent activity log → FAB logger + ผลงาน/KPI | ⛔ **not designed yet** ([approach decided](#design-decisions--2026-07-13)) |
 | **Zone** | — | CEO-managed lookup (ตั้งค่า/admin) | ⛔ **not designed yet** |
+| **HR Sheet → Employee Lists** | ~10 | `/team` (ทีม/บุคคล) + employee create/edit | ✅ built (design-first) |
+| **HR Sheet → Zone** | 519 | zone master (assigned sales + sheet links) | ⚠️ richer than current `zone` |
+| **HR Sheet → Day off** | ~1000 | leave management | ⛔ not designed (candidate surface) |
+| **HR Sheet → User Pass** | ~1000 | portal/ad logins (back-office secrets) | ❌ not a CRM surface |
 | _Owner, New Lead, KPI Target, Spending, Comments, Dashboards…_ | — | various | ⛔ not yet reviewed |
 
 > ⚠️ **Design-steps reminder:** three real, populated surfaces below (**Projects,
@@ -131,6 +139,70 @@ Per-agent daily log of activities + time spent; feeds KPI/effort dashboards.
 
 ---
 
+## HR Sheet — people / zones / leave  (2026-07-14)
+
+Separate workbook **"HR Sheet"** (`1oJTQhWXUNj1ft78WY9aNvXLoTr5w1ApyN4mWMyQP0eY`), 4 tabs.
+It is the real source for the **Team / บุคคล** surface — `/team` (list) + the employee
+**record page with in-place edit** (`/team/[id]`, `/team/new`) are built design-first against
+this schema (`lib/team.ts`, `components/EmployeeRecord.tsx`). This detail-page + edit-mode
+pattern is the **app-wide CRUD template** for the other record entities (listing/lead/
+contact/project), whose edit buttons are still dead. Quick-capture (activity log, daily task)
+stays as modals — different intent.
+
+### Tab 1 — `Employee Lists` (cols A–AE, 31 fields) ✅ built → `/team`
+
+**Placement:** `A` Employee Code (PK) · `B` Status · `C` Division · `D` Position · `E` 2nd Position · `F` Zone (Sales).
+**Identity:** `G/H` First/Last (Eng) · `I/J` First/Last (Thai) · `K` Nickname · `L` Gender · `M` Nationality.
+**Contact:** `N` Phone · `O` Additional Phone · `S` Email · `T` Assigned Work Email · `AD` Line (UserId).
+**Employment:** `V` Birthday · `W` Date Started · `U` Sheet ID (Sales, per-agent listing sheets) · `AB` Remark · `X` Employee Agreement Files.
+**Emergency:** `Y` Contact · `Z` Contact Phone · `AA` Contact Relationship.
+**💰 Financial (sensitive):** `P` Salary · `Q` Commission.
+**🔒 PII / legal (sensitive):** `R` ID Card no. · `AC` KBANK Account · `AE` PaySlip Drive.
+
+**Real enum values:** `Status` = `Active` / `Terminate`. `Division` = `C-Level` (only). `Position` =
+`CEO` / `Listing Support` / `Marketing`. `2nd Position` = `Sales` / `Support`.
+
+**Key facts that corrected earlier guesses (were fictional in the seed):**
+- **`Employee Code` prefixes carry meaning:** `C-` C-level · `S-` Sales · `SP-` Support.
+- **`2nd Position` is really the department** (Sales / Support); `Division` only marks C-Level.
+- **The real team:** Stone (`C-001`, **CEO who also carries Sales** — genuine player-coach),
+  Pup/Game/Q/Mhow/Golf (Sales), Benz (Listing Support), Pui (**Marketing**), + Nut & Pai (terminated).
+  **No Admin, HR, or Sales-Leader person exists today.**
+- **`Commission` is a RATE, not baht** — `0.6` = 60% split (sales), `0.5`, `0.006` (support).
+  A monthly commission ฿ figure is a *performance/pipeline* number, NOT an HR field. The old
+  `team.ts` `commissionMonth: ฿` was wrong and has been removed.
+
+**Applied to the CRM (2026-07-14):**
+- `lib/team.ts` `Employee` now mirrors A–AE (commission as `commissionRate` fraction);
+  seeded with the real people. `listSalesAgents()` = active + department `sales` (lead
+  assignment must not offer support/marketing/management).
+- RBAC seed aligned to reality (`lib/rbac.ts`): **added `Marketing` role**; users are the real
+  staff; **Stone = `[ceo, agent]`**. `Admin` / `Sales Leader` / `HR` kept as **unstaffed palette
+  roles** for the org's stated future (delete if never used). Default view-as = Stone.
+- **New permission gate `people.view_sensitive`** — PII/legal docs (ID card, bank, payslip,
+  agreement). Money (salary + commission) stays under `financials.view_comp`. Both enforced in
+  `EmployeeRecord` (whole sections hidden + a locked note) and the `/team` commission column.
+  Wiring must mirror these two gates in RLS.
+
+### Tab 2 — `Zone` (cols A–I, 519 rows) ⚠️ richer than current `lib/zones.ts`
+
+`A` Zone ID · `B` Zone Code · `C/D` Name (Eng/Thai) · **`E` Current Sales Assigned** ·
+`F` Sales Sheet (per-zone Google Sheet link) · `G` Location (My Maps) · `H/I` Date Updated/Created.
+The **zone↔sales assignment** is the inverse of `Employee.zoneCodes` (HR sheet's `Zone (Sales)`) —
+wire as **one join table**, not two. Current `lib/zones.ts` is thinner (no sheet/location/dates).
+
+### Tab 3 — `Day off` (cols A–G, ~1000 rows) ⛔ candidate surface
+
+`A` Date Submit · `B` Name · `C/D` Start/End Date · `E` Condition (`ลาพักร้อน`/`ลากิจ`…) ·
+`F` Remark · `G` submission link. A **leave-management** surface if the client wants it in the CRM.
+
+### Tab 4 — `User  Pass` (~1000 rows) ❌ not a CRM surface
+
+Portal/ad-account logins (DDproperty, Living Insider, PropertyHub, FB/IG…) + free-form notes.
+Shared secrets / back-office — keep out of the CRM (or a locked CEO-only vault at most).
+
+---
+
 ## Design backlog — surfaces not yet built
 
 These come straight from the source workbook and must be planned into the remaining
@@ -196,7 +268,7 @@ in-memory (not persisted). Wire later = tables `roles`, `role_permissions`, `use
 **Why this shape (resolves the earlier open assumptions as *config*, not code):**
 - **Player-coach transition** — a person is `[Agent + Sales Leader]` now; drop the Agent
   role later. Multi-role, no migration.
-- **HR payroll later** — just toggle `financials.payroll` / `financials.view` on the HR
+- **HR payroll later** — just toggle `financials.payroll` / `financials.view_comp` on the HR
   role when the time comes.
 - **Who logs (FAB)** — one permission `activity.log`, granted to whoever does sales work.
 - **Contact privacy / master-data** — `contacts.view_own` vs `contacts.view_all`,
@@ -206,18 +278,57 @@ in-memory (not persisted). Wire later = tables `roles`, `role_permissions`, `use
 Leads (view all/own, assign, edit) · Contacts (view all, view own/assigned, manage) ·
 Inventory (view/edit listings, marketing, edit projects, add Last Match) · **Activity
 (log — the FAB)** · Targets/KPI (view team/own, set targets, add stretch) · Financials
-(view prices/commission, manage payroll) · People (manage employees) · Master data
-(govern zones & vocabularies) · System (manage roles & permissions).
+(**`financials.view_comp`** = team compensation, manage payroll) · People (manage
+employees, view sensitive PII) · Master data (govern zones & vocabularies) · System
+(manage roles & permissions).
 
-**Seed roles:** CEO (all permissions, system/locked) + Admin · Listing Support · Sales
-Leader · Agent · HR — the latter five seeded **empty on purpose** (duties defined by
-toggling in the UI, not assumed). Note: Listing Support's duties are **undefined** pending
-the client — left blank.
+> ⚠️ **`financials.view_comp` does NOT gate listing prices.** It was renamed from
+> `financials.view` (label used to read "ราคา/คอมมิชชั่น") on 2026-07-15 because that name
+> invited over-granting: it only ever hid **employee salary + commission rate**. Asking /
+> rental price is visible to anyone with `listings.view` — a listing without a price is
+> useless. Don't reintroduce a price gate unless a real rule demands one.
+
+### Seeded role matrix — this IS the access policy (2026-07-15)
+
+Previously every non-CEO role shipped **empty** ("define by toggling"). That left the
+wiring phase with no policy to enforce, so the roles are now seeded with the client-agreed
+matrix below. **This table is the spec RLS must reproduce** — the client-side `can()` is
+convenience, not enforcement.
+
+| | CEO | Agent | Listing Support | Marketing | Sales Leader\* | Admin\* | HR\* |
+|---|---|---|---|---|---|---|---|
+| leads view | all | **own** | – | – | all | all | – |
+| leads edit / assign | ✓ / ✓ | ✓ / – | – | – | ✓ / ✓ | ✓ / ✓ | – |
+| contacts | all | **own** + manage | all | – | all + manage | all + manage | – |
+| listings view / edit | ✓ / ✓ | ✓ / ✓ | ✓ / ✓ | ✓ / – | ✓ / ✓ | ✓ / – | – |
+| listings.marketing / projects.edit | ✓ / ✓ | – | ✓ / ✓ | ✓ / – | – | – | – |
+| lastmatch.add | ✓ | ✓ | ✓ | – | ✓ | – | – |
+| activity.log | ✓ | ✓ | ✓ | ✓ | ✓ | – | – |
+| performance own / team | ✓ / ✓ | ✓ / ✓ | ✓ / – | ✓ / – | ✓ / ✓ | – / – | – / ✓ |
+| targets set / stretch | ✓ / ✓ | – / ✓ | – / ✓ | – / ✓ | ✓ / ✓ | – | – |
+| financials view_comp / payroll | ✓ / ✓ | – | – | – | – | – | ✓ / ✓ |
+| people manage / view_sensitive | ✓ / ✓ | – | – | – | – | – | ✓ / ✓ |
+| masterdata.govern · roles.manage | ✓ | – | – | – | – | – | – |
+
+\*Seeded but **unstaffed** (0 users = 0 real access). They document the org's stated future
+(lead dispatch, player-coach transition, payroll) and are testable via view-as. CEO deletes
+any that never get used.
+
+**Rules encoded in the matrix:**
+- `view_all` beats `view_own` — grant only one per surface.
+- **Agents are own-scoped** for leads + contacts (matches the `created_by`/`assigned_to`
+  contact privacy already built) but **do** get `performance.view_team` — the leaderboard is
+  intentionally public, and it's what makes `/team` (roster only, no money) visible to them.
+- **Compensation and PII are two separate gates**, both CEO/HR only.
+- `activity.log` goes to everyone carrying a commission rate — including **Benz** (Listing
+  Support) and **Pui** (Marketing), whose work counts toward KPI.
+- Listing Support gets `contacts.view_all` (needs every owner's contact to coordinate
+  listings), resolving the earlier "duties undefined" note.
 
 **Built (design-first):** app-wide **gating** via `can()` (`RbacProvider` — shared store
 so RolesManager edits live-change access) + a **"view as" switcher** in the sidebar;
 nav items + the FAB carry permission keys. **Team/HR** (`/team`, commission column gated
-on `financials.view`) and **Admin lead-assignment** (`/assign`) surfaces. **Contact
+on `financials.view_comp`) and **Admin lead-assignment** (`/assign`) surfaces. **Contact
 privacy** enforced: `contacts.createdBy/assignedTo` + `visibleContacts()` scope the list to
 the viewer unless `contacts.view_all`. Wiring replaces the in-memory store + view-as with
 the authenticated session and real RLS.

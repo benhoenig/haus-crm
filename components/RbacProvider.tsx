@@ -38,12 +38,13 @@ export function RbacProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = React.useState<OrgUser[]>(() =>
     SEED_USERS.map((u) => ({ ...u, roleIds: [...u.roleIds] }))
   );
-  // Default to the CEO so the app renders full before the client hydrates a saved choice.
-  const [viewerId, setViewerIdState] = React.useState<string>("u_boss");
+  // Default to the CEO (Stone) so the app renders full before the client hydrates a saved choice.
+  const [viewerId, setViewerIdState] = React.useState<string>("u_stone");
 
   React.useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-    if (saved) setViewerIdState(saved);
+    // Ignore a stale saved id (e.g. an old seed user that no longer exists).
+    if (saved && SEED_USERS.some((u) => u.id === saved)) setViewerIdState(saved);
   }, []);
 
   const setViewerId = React.useCallback((id: string) => {

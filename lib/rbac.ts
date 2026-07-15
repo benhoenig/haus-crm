@@ -2,8 +2,9 @@
 //
 // Roles are NOT hardcoded capabilities: a role is an editable SET of permissions, and a
 // user holds one or more roles (effective access = the UNION). The CEO edits roles +
-// assigns users on /settings/roles. Only CEO is seeded with permissions; the other five
-// roles start EMPTY on purpose — their duties are defined by toggling, not assumed.
+// assigns users on /settings/roles. Every role ships with a seeded default matrix (see
+// SEED_ROLES) — that matrix IS the access policy, so the wiring phase has a spec to
+// enforce rather than an empty grid. CEO is locked to all permissions (superadmin).
 //
 // Design phase: changes live in component state only (not persisted). Wire later =
 // tables `permissions` (fixed catalog), `roles`, `role_permissions`, `user_roles`, and
@@ -71,14 +72,27 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     key: "financials",
     label: "การเงิน",
     perms: [
-      { key: "financials.view", label: "ดูข้อมูลการเงิน (ราคา/คอมมิชชั่น)" },
+      // Compensation ONLY — this does NOT gate listing prices. Anyone with
+      // `listings.view` sees asking/rental price (a listing without a price is useless).
+      {
+        key: "financials.view_comp",
+        label: "ดูค่าตอบแทนของทีม (เงินเดือน/คอมมิชชั่น)",
+        hint: "เงินเดือน + เรตคอมของพนักงาน — CEO/HR เท่านั้น",
+      },
       { key: "financials.payroll", label: "จัดการเงินเดือน" },
     ],
   },
   {
     key: "people",
     label: "บุคคล",
-    perms: [{ key: "people.manage", label: "จัดการพนักงาน (HR)" }],
+    perms: [
+      { key: "people.manage", label: "จัดการพนักงาน (HR)" },
+      {
+        key: "people.view_sensitive",
+        label: "ดูข้อมูลอ่อนไหว (บัตร ปชช./บัญชี/สลิป)",
+        hint: "PII และเอกสารพนักงาน — CEO/HR เท่านั้น",
+      },
+    ],
   },
   {
     key: "masterdata",
@@ -121,7 +135,20 @@ export interface OrgUser {
   roleIds: string[];
 }
 
-// CEO seeded with everything; the other five start EMPTY (define via toggles).
+// Roles reflect the real org (HR Sheet → Position / 2nd Position): CEO, Agent (Sales),
+// Listing Support, Marketing are staffed today. Sales Leader / Admin / HR are seeded but
+// UNSTAFFED (0 users = 0 real access) — they document the org's stated future (lead
+// dispatch, player-coach transition, payroll) and are testable via view-as. CEO can
+// delete any that never get used.
+//
+// This matrix is the **intended access policy** and the spec the wiring phase must
+// reproduce in RLS — the client-side `can()` is convenience, not enforcement.
+// Rules encoded here:
+//   • view_all beats view_own — grant only one per surface.
+//   • Agents are own-scoped (matches the created_by/assigned_to contact privacy already
+//     built) but DO see team performance — the leaderboard is intentionally public.
+//   • Compensation + PII are CEO/HR only, and are two SEPARATE gates.
+//   • activity.log goes to everyone who carries a commission rate (incl. Benz + Pui).
 export const SEED_ROLES: Role[] = [
   {
     id: "ceo",
@@ -130,22 +157,111 @@ export const SEED_ROLES: Role[] = [
     permissions: [...ALL_PERMISSIONS],
     system: true,
   },
-  { id: "admin", name: "Admin", description: "งานธุรการ / จัดการดีลและผู้ติดต่อ", permissions: [] },
-  { id: "listing_support", name: "Listing Support", description: "ยังไม่กำหนดหน้าที่", permissions: [] },
-  { id: "sales_leader", name: "Sales Leader", description: "หัวหน้าทีมขาย", permissions: [] },
-  { id: "agent", name: "Agent", description: "เซลส์ / ดูแลดีลของตัวเอง", permissions: [] },
-  { id: "hr", name: "HR", description: "งานบุคคล", permissions: [] },
+  {
+    id: "agent",
+    name: "Agent (Sales)",
+    description: "เซลส์ / ดูแลดีลของตัวเอง",
+    permissions: [
+      "leads.view_own",
+      "leads.edit",
+      "contacts.view_own",
+      "contacts.manage",
+      "listings.view",
+      "listings.edit",
+      "lastmatch.add",
+      "activity.log",
+      "performance.view_own",
+      "performance.view_team",
+      "targets.stretch",
+    ],
+  },
+  {
+    id: "listing_support",
+    name: "Listing Support",
+    description: "งานสนับสนุนการลงประกาศ/คลังทรัพย์",
+    permissions: [
+      // Needs every owner's contact to coordinate listings — not own-scoped.
+      "contacts.view_all",
+      "listings.view",
+      "listings.edit",
+      "listings.marketing",
+      "projects.edit",
+      "lastmatch.add",
+      "activity.log",
+      "performance.view_own",
+      "targets.stretch",
+    ],
+  },
+  {
+    id: "marketing",
+    name: "Marketing",
+    description: "การตลาด / โซเชียล / ลงโฆษณา",
+    permissions: [
+      "listings.view",
+      "listings.marketing",
+      "activity.log",
+      "performance.view_own",
+      "targets.stretch",
+    ],
+  },
+  {
+    id: "sales_leader",
+    name: "Sales Leader",
+    description: "หัวหน้าทีมขาย (ยังไม่มีผู้ดำรงตำแหน่ง)",
+    permissions: [
+      "leads.view_all",
+      "leads.edit",
+      "leads.assign",
+      "contacts.view_all",
+      "contacts.manage",
+      "listings.view",
+      "listings.edit",
+      "lastmatch.add",
+      "activity.log",
+      "performance.view_own",
+      "performance.view_team",
+      "targets.set",
+      "targets.stretch",
+    ],
+  },
+  {
+    id: "admin",
+    name: "Admin",
+    description: "งานธุรการ / มอบหมายดีล (ยังไม่มีผู้ดำรงตำแหน่ง)",
+    permissions: [
+      "leads.view_all",
+      "leads.edit",
+      "leads.assign",
+      "contacts.view_all",
+      "contacts.manage",
+      "listings.view",
+    ],
+  },
+  {
+    id: "hr",
+    name: "HR",
+    description: "งานบุคคล / เงินเดือน (ยังไม่มีผู้ดำรงตำแหน่ง)",
+    permissions: [
+      "people.manage",
+      "people.view_sensitive",
+      "financials.view_comp",
+      "financials.payroll",
+      "performance.view_team",
+    ],
+  },
 ];
 
-// Sample users — includes a player-coach (Stone = Agent + Sales Leader) to exercise multi-role.
+// Real staff (HR Sheet → Employee Lists, Active only). Stone is a genuine player-coach:
+// CEO who also carries a Sales role. Login ids mirror lib/team.ts Employee.id.
 export const SEED_USERS: OrgUser[] = [
-  { id: "u_boss", name: "Haus Boss", roleIds: ["ceo"] },
-  { id: "u_stone", name: "Stone", roleIds: ["agent", "sales_leader"] },
+  { id: "u_stone", name: "Stone", roleIds: ["ceo", "agent"] },
+  { id: "u_pup", name: "Pup", roleIds: ["agent"] },
+  { id: "u_game", name: "Game", roleIds: ["agent"] },
   { id: "u_q", name: "Q", roleIds: ["agent"] },
   { id: "u_mhow", name: "Mhow", roleIds: ["agent"] },
-  { id: "u_pup", name: "Pup", roleIds: ["listing_support"] },
-  { id: "u_nan", name: "Nan", roleIds: ["admin"] },
-  { id: "u_ploy", name: "Ploy", roleIds: ["hr"] },
+  { id: "u_golf", name: "Golf", roleIds: ["agent"] },
+  { id: "u_benz", name: "Benz", roleIds: ["listing_support"] },
+  { id: "u_pui", name: "Pui", roleIds: ["marketing"] },
 ];
 
 /** Effective permission set for a user = union across their roles. */

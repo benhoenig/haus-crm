@@ -1,25 +1,32 @@
 "use client";
 
 import * as React from "react";
-import { Search, Pencil } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Search, Pencil, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { useRbac } from "@/components/RbacProvider";
-import { listEmployees, effortThisMonth } from "@/lib/team";
-import { listZones } from "@/lib/zones";
-import { formatBaht } from "@/lib/format";
-import { cn } from "@/lib/cn";
+import {
+  listEmployees,
+  effortThisMonth,
+  employeeFullName,
+  employeeZoneNames,
+  DEPARTMENT_LABEL,
+} from "@/lib/team";
 
 export function TeamTable() {
+  const router = useRouter();
   const { roles, users, can } = useRbac();
   const [q, setQ] = React.useState("");
-  const showMoney = can("financials.view");
 
-  const zones = listZones();
-  const zoneName = (id?: string) => zones.find((z) => z.zone_id === id)?.name_thai ?? "—";
+  const showMoney = can("financials.view_comp");
+  const canManage = can("people.manage");
+
   const roleNames = (uid: string) => {
     const u = users.find((x) => x.id === uid);
     if (!u || u.roleIds.length === 0) return [] as string[];
@@ -27,7 +34,13 @@ export function TeamTable() {
   };
 
   const query = q.trim().toLowerCase();
-  const list = listEmployees().filter((e) => !query || e.name.toLowerCase().includes(query));
+  const list = listEmployees().filter(
+    (e) =>
+      !query ||
+      e.nickname.toLowerCase().includes(query) ||
+      employeeFullName(e).toLowerCase().includes(query) ||
+      e.code.toLowerCase().includes(query)
+  );
 
   return (
     <Card>
@@ -41,35 +54,52 @@ export function TeamTable() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="ค้นหาพนักงาน…"
-            className="w-full sm:w-56 pl-8"
+            placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส…"
+            className="w-full sm:w-64 pl-8"
           />
         </div>
         <span className="text-small text-text-subtle ml-auto num">{list.length} คน</span>
+        {canManage && (
+          <Button size="sm" onClick={() => router.push("/team/new")}>
+            <Plus size={15} strokeWidth={2} /> เพิ่มพนักงาน
+          </Button>
+        )}
       </div>
 
       <CardContent className="p-0">
-        <Table className="min-w-[720px]">
+        <Table className="min-w-[820px]">
           <THead>
             <TR>
               <TH>พนักงาน</TH>
               <TH>บทบาท</TH>
+              <TH>ตำแหน่ง</TH>
               <TH>โซน</TH>
               <TH>สถานะ</TH>
               <TH className="text-right">กิจกรรมเดือนนี้</TH>
               {showMoney && <TH className="text-right">คอมมิชชั่น</TH>}
-              <TH className="text-right">จัดการ</TH>
+              {canManage && <TH className="text-right">จัดการ</TH>}
             </TR>
           </THead>
           <TBody>
             {list.map((e) => {
               const rnames = roleNames(e.id);
+              const zoneNames = employeeZoneNames(e);
               return (
-                <TR key={e.id}>
+                <TR
+                  key={e.id}
+                  className="cursor-pointer hover:bg-surface-hover transition-colors"
+                  onClick={() => router.push(`/team/${e.id}`)}
+                >
                   <TD>
                     <div className="flex items-center gap-2.5">
-                      <Avatar name={e.name} tone="crimson" />
-                      <span className="font-medium">{e.name}</span>
+                      <Avatar name={e.nickname} tone="crimson" src={e.avatarUrl} />
+                      <div className="min-w-0">
+                        <div className="font-medium">{e.nickname}</div>
+                        <div className="text-label text-text-subtle truncate">
+                          {employeeFullName(e)}
+                          {e.code ? ` · ${e.code}` : ""}
+                        </div>
+                      </div>
                     </div>
                   </TD>
                   <TD>
@@ -85,31 +115,38 @@ export function TeamTable() {
                       )}
                     </div>
                   </TD>
-                  <TD className="text-small text-text-muted">{zoneName(e.zoneId)}</TD>
+                  <TD className="text-small">
+                    <div className="text-text">{e.position || "—"}</div>
+                    <div className="text-label text-text-subtle">{DEPARTMENT_LABEL[e.department]}</div>
+                  </TD>
+                  <TD className="text-small text-text-muted">
+                    {zoneNames.length ? zoneNames.join(", ") : "—"}
+                  </TD>
                   <TD>
-                    {e.active ? (
+                    {e.status === "active" ? (
                       <Pill tone="green">ทำงานอยู่</Pill>
                     ) : (
-                      <Pill tone="neutral">พักงาน</Pill>
+                      <Pill tone="neutral">พ้นสภาพ</Pill>
                     )}
                   </TD>
-                  <TD className="num text-right text-text-muted">{effortThisMonth(e.name)}</TD>
+                  <TD className="num text-right text-text-muted">{effortThisMonth(e.nickname)}</TD>
                   {showMoney && (
                     <TD className="num text-right font-medium">
-                      {e.commissionMonth ? formatBaht(e.commissionMonth) : "—"}
+                      {e.commissionRate != null ? `${(e.commissionRate * 100).toFixed(1)}%` : "—"}
                     </TD>
                   )}
-                  <TD className="text-right">
-                    <button
-                      disabled
-                      aria-label="จัดการพนักงาน"
-                      className={cn(
-                        "inline-grid place-items-center size-7 rounded-md text-text-subtle opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <Pencil size={14} strokeWidth={1.75} />
-                    </button>
-                  </TD>
+                  {canManage && (
+                    <TD className="text-right">
+                      <Link
+                        href={`/team/${e.id}?edit=1`}
+                        onClick={(ev) => ev.stopPropagation()}
+                        aria-label={`แก้ไข ${e.nickname}`}
+                        className="inline-grid place-items-center size-7 rounded-md text-text-muted hover:bg-surface-2 hover:text-text transition-colors"
+                      >
+                        <Pencil size={14} strokeWidth={1.75} />
+                      </Link>
+                    </TD>
+                  )}
                 </TR>
               );
             })}

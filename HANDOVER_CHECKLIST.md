@@ -12,7 +12,7 @@
 > 3. Clear every ⚠️ *Data-wiring must-fix* before ticking the related feature.
 > 4. Don't hand over with unchecked boxes.
 
-Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
+Last updated: 2026-07-15 · Status: **design phase (DB not wired)**
 
 ---
 
@@ -110,15 +110,25 @@ Last updated: 2026-07-10 · Status: **design phase (DB not wired)**
 - [ ] **Auto-bridge**: activity-source targets compute from the real activities table; manual/pipeline +1 persists
 - [ ] Targets: official (manager-set) vs stretch (agent) write paths; ties to KPI-target templates
 
-### Team / บุคคล (`/team`)  ⚠️ *sample data (`lib/team.ts`)*
-- [ ] Wire `employees` table (roles via user_roles, zone, status, joined, commission); effort from activities
-- [ ] **Commission column gated on `financials.view`** (HR without it, incl. payroll-later)
+### Team / บุคคล (`/team`)  ⚠️ *sample data (`lib/team.ts`) — schema from HR Sheet*
+- [ ] Wire `employees` table to the **HR Sheet → Employee Lists** schema (A–AE; see [DATA_MODEL.md](./DATA_MODEL.md#hr-sheet--people--zones--leave-2026-07-14)). Login `Employee.id` ↔ rbac `OrgUser.id`; roles via `user_roles`; effort from activities.
+- [ ] **Employee record page** (`EmployeeRecord` on `/team/[id]` + `/team/new`) — detail view with **in-place edit mode** (Save/Cancel); currently stubbed (`console.log`, no persist). Validate required nickname; map form → columns. This detail-page + edit-mode flow is the **app-wide CRUD template** — apply it when wiring the dead edit buttons on listing/lead/contact/project.
+- [ ] **Commission is a RATE** (`commissionRate` fraction, e.g. 0.6), not a ฿ amount — don't reintroduce a monthly-฿ field here (that's a performance/pipeline number).
+- [ ] **Profile image** (`Employee.avatarUrl`) — HAUS-authored field, **no HR Sheet column**. The record page picks + previews via an in-browser object URL only (not persisted). Wire: upload the picked `File` to a storage bucket (e.g. Supabase Storage), store the returned URL in `avatarUrl`; handle replace + remove. The shared `Avatar` already renders `src` (image) with an initials fallback app-wide.
+- [ ] **Two sensitivity gates enforced in RLS** to mirror the UI: money (salary + commission) on `financials.view_comp`; PII/legal docs (ID card, KBANK, payslip, agreement) on **`people.view_sensitive`**. `EmployeeRecord` hides whole sections without the gate — the server must too.
+- [ ] **Zone↔sales = one join table** — HR Sheet `Zone (Sales)` (per-employee) and `Zone` tab `Current Sales Assigned` (per-zone) are inverse views; don't store both. Reconcile `lib/zones.ts` (thin) with the richer HR `Zone` tab (sheet link, location, dates).
+- [ ] Lead assignment offers **sales only** (`listSalesAgents()` = active + department `sales`) — verify support/marketing/management never appear.
+- [ ] Terminated staff (Nut, Pai) have **no login** (no rbac user) — confirm they can't authenticate but remain in records.
 
 ### มอบหมาย Lead (`/assign`)  ⚠️ *stubbed assign*
 - [ ] Assign writes `sale_id` on the lead; unassigned filter correct; gate on `leads.assign`
 
 ### Settings hub (`/settings`, Shelter-style single page)  ⚠️ *sample data + in-memory*
 - [ ] **Roles & Permissions** (`lib/rbac.ts`): persist roles/permissions/user-roles; replace the in-memory `RbacProvider` + view-as with the auth session; enforce `can()` at the **page/server** level too (nav + FAB gating already client-side)
+- [ ] **Seed the role matrix as the real policy** — `SEED_ROLES` now ships a client-agreed permission set per role (see [DATA_MODEL.md → Seeded role matrix](./DATA_MODEL.md#seeded-role-matrix--this-is-the-access-policy-2026-07-15)). **That table is the spec RLS must reproduce**; the client-side `can()` is convenience, not enforcement. Verify each persona against it after wiring.
+- [ ] **`financials.view_comp` gates COMPENSATION ONLY** (renamed from `financials.view` — the old "ราคา/คอมมิชชั่น" label invited over-granting). It must **not** be wired to gate listing prices; asking/rental price is visible to anyone with `listings.view`.
+- [ ] Unstaffed roles (Sales Leader, Admin, HR) are seeded but hold **0 users** — confirm 0 users really means 0 access once RLS is live, and delete any role the org never staffs.
+- [ ] ⚠️ **Most of the matrix is declarative, not enforced.** Only **5** gates actually change the UI today — `contacts.view_all` ([ContactsBrowser](./components/ContactsBrowser.tsx)), `activity.log` ([LogActivity](./components/LogActivity.tsx)), `financials.view_comp` + `people.manage` ([TeamTable](./components/TeamTable.tsx)), and `financials.view_comp` + `people.view_sensitive` + `people.manage` ([EmployeeRecord](./components/EmployeeRecord.tsx)). Every other permission only filters the **sidebar nav** ([lib/nav.ts](./lib/nav.ts)) — the page itself renders fully if reached by URL. Specifically: `leads.view_own` does **not** scope `/leads` or `/pipeline`, `performance.view_team` does **not** gate the dashboard leaderboard, and `listings.edit` / `projects.edit` / `targets.set` gate nothing. **Wiring must enforce all 23 at the server/RLS level** — the matrix is the intent, the app does not yet honour it.
 - [ ] **Zones** (`lib/zones.ts` → `zone`): wire table; `+ เพิ่มโซน` / row edit write (CEO)
 - [ ] **Master-data** (Property Types, Action types, KPI Targets): persist edits as CEO-governed vocabularies
 

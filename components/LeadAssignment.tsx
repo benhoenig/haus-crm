@@ -7,12 +7,13 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
-import { listEmployees } from "@/lib/team";
+import { listSalesAgents } from "@/lib/team";
 import { formatBaht } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 export function LeadAssignment({ leads }: { leads: CrmRow[] }) {
-  const agents = listEmployees().filter((e) => e.active);
+  // Only active sales staff can receive leads (not support/marketing/management).
+  const agents = listSalesAgents();
   // Local assignment overrides (design stub — not persisted).
   const [assigned, setAssigned] = React.useState<Record<string, string>>({});
   const [q, setQ] = React.useState("");
@@ -109,12 +110,12 @@ export function LeadAssignment({ leads }: { leads: CrmRow[] }) {
                           className="h-8 px-2 rounded-md border border-border-strong bg-surface text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                         >
                           <option value="">— ยังไม่มอบหมาย —</option>
-                          {cur && !agents.some((a) => a.name === cur || a.id === cur) && (
+                          {cur && !agents.some((a) => a.nickname === cur || a.id === cur) && (
                             <option value={cur}>{cur}</option>
                           )}
                           {agents.map((a) => (
-                            <option key={a.id} value={a.name}>
-                              {a.name}
+                            <option key={a.id} value={a.nickname}>
+                              {a.nickname}
                             </option>
                           ))}
                         </select>
