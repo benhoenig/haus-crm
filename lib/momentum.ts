@@ -12,15 +12,22 @@ const SAMPLE_AGENT = "Stone"; // the representative agent whose plan/targets we 
 
 // Awareness split (Solo Gang's building/working/personal, cut for sales).
 export type TaskType = "build" | "work" | "personal";
-export const TASK_TYPES: Record<TaskType, { label: string; tone: "accent" | "blue" | "neutral" }> = {
+// Task-type colours map to the Solo Gang "Momentum" awareness triad on /today (see
+// .plan-theme in globals.css): build=accent(emerald), work=blue(indigo), personal=violet(rose).
+export const TASK_TYPES: Record<TaskType, { label: string; tone: "accent" | "blue" | "violet" }> = {
   build: { label: "สร้างยอด", tone: "accent" },
-  work: { label: "งานประจำ", tone: "blue" },
-  personal: { label: "ส่วนตัว", tone: "neutral" },
+  work: { label: "พื้นฐาน", tone: "blue" },
+  personal: { label: "ส่วนตัว", tone: "violet" },
 };
 export const TASK_TYPE_ORDER: TaskType[] = ["build", "work", "personal"];
 
-export type TargetKind = "count" | "baht" | "check";
-export type TargetSource = "activity" | "pipeline" | "manual";
+// "ratio" = a %-of-total KPI (numerator ÷ denominator, goal 100%) — e.g. Owner Talk,
+// Buyer Follow. manualCurrent holds the numerator; `denominator` holds the total.
+export type TargetKind = "count" | "baht" | "check" | "ratio";
+// "kpi" = one of the leadership-defined sales-process KPIs, aggregated from the
+// summary_kpi tab at wiring (not from the raw activity log — ratio KPIs need a
+// denominator the activity count alone can't give).
+export type TargetSource = "activity" | "pipeline" | "manual" | "kpi";
 export type TargetOwner = "official" | "stretch";
 
 export interface Target {
@@ -29,13 +36,25 @@ export interface Target {
   month: string;
   label: string;
   kind: TargetKind;
+  /** count/baht: the goal number. ratio: the % goal (100). check: 1. */
   target: number;
-  /** Stored progress for pipeline/manual sources (activity source is computed live). */
+  /** Stored progress for pipeline/manual/kpi sources (activity source is computed live).
+   *  For kind="ratio" this is the numerator (done); pair it with `denominator`. */
   manualCurrent: number;
+  /** kind="ratio" only: the denominator (the total universe). pct = manualCurrent ÷ denominator. */
+  denominator?: number;
   source: TargetSource;
-  /** For source="activity": the CRM action whose logged count feeds this target. */
+  /** For source="activity": the CRM action whose logged count feeds this target.
+   *  For source="kpi": the related activity action (informational — the KPI value
+   *  itself comes from summary_kpi, but this documents the driving behaviour). */
   activityType?: string;
   owner: TargetOwner;
+  /** KPI weekly-focus rhythm (leadership pacing): this KPI is the focus in weeks
+   *  focusWeekStart..focusWeekEnd of the month. Absent = no rhythm (plain goal). */
+  focusWeekStart?: number;
+  focusWeekEnd?: number;
+  /** Short display for the focus window, e.g. "สัปดาห์ 2-3". */
+  focusLabel?: string;
 }
 
 export type RecurFreq = "none" | "daily" | "weekdays" | "weekly" | "monthly";
@@ -83,12 +102,13 @@ export const WEEKDAY_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "
 export const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon-first display
 
 const TARGETS: Target[] = [
-  // Official — set by the manager.
-  { id: "t_call", agent: SAMPLE_AGENT, month: MONTH, label: "โทรหาลูกค้า", kind: "count", target: 30, manualCurrent: 0, source: "activity", activityType: "Call", owner: "official" },
-  { id: "t_show", agent: SAMPLE_AGENT, month: MONTH, label: "พาชม", kind: "count", target: 10, manualCurrent: 0, source: "activity", activityType: "Show", owner: "official" },
-  { id: "t_owner", agent: SAMPLE_AGENT, month: MONTH, label: "เยี่ยมเจ้าของ", kind: "count", target: 12, manualCurrent: 0, source: "activity", activityType: "Owner Visit", owner: "official" },
-  { id: "t_win", agent: SAMPLE_AGENT, month: MONTH, label: "ปิดการขาย", kind: "count", target: 3, manualCurrent: 1, source: "pipeline", owner: "official" },
-  { id: "t_comm", agent: SAMPLE_AGENT, month: MONTH, label: "คอมมิชชั่น", kind: "baht", target: 500000, manualCurrent: 180000, source: "pipeline", owner: "official" },
+  // Official — the 4 leadership-defined sales-process KPIs (from the HAUS dashboard's
+  // summary_kpi). Each has a weekly-focus window (which KPI to push that week). Owner
+  // Talk & Buyer Follow are ratios (% of a universe); Sourcing & Survey are counts.
+  { id: "k_ownertalk", agent: SAMPLE_AGENT, month: MONTH, label: "Owner Talk", kind: "ratio", target: 100, manualCurrent: 9, denominator: 12, source: "kpi", activityType: "Owner Visit", owner: "official", focusWeekStart: 1, focusWeekEnd: 1, focusLabel: "สัปดาห์ 1" },
+  { id: "k_sourcing", agent: SAMPLE_AGENT, month: MONTH, label: "Sourcing", kind: "count", target: 10, manualCurrent: 6, source: "kpi", activityType: "Sourcing", owner: "official", focusWeekStart: 2, focusWeekEnd: 3, focusLabel: "สัปดาห์ 2-3" },
+  { id: "k_survey", agent: SAMPLE_AGENT, month: MONTH, label: "Survey", kind: "count", target: 8, manualCurrent: 5, source: "kpi", activityType: "Survey", owner: "official", focusWeekStart: 2, focusWeekEnd: 3, focusLabel: "สัปดาห์ 2-3" },
+  { id: "k_buyerfollow", agent: SAMPLE_AGENT, month: MONTH, label: "Buyer Follow", kind: "ratio", target: 100, manualCurrent: 22, denominator: 30, source: "kpi", activityType: "Follow", owner: "official", focusWeekStart: 4, focusWeekEnd: 4, focusLabel: "สัปดาห์ 4" },
   // Stretch — added by the agent.
   { id: "t_reels", agent: SAMPLE_AGENT, month: MONTH, label: "ถ่าย Reels", kind: "count", target: 6, manualCurrent: 0, source: "activity", activityType: "Reels", owner: "stretch" },
   { id: "t_source", agent: SAMPLE_AGENT, month: MONTH, label: "หาทรัพย์ใหม่", kind: "count", target: 10, manualCurrent: 0, source: "activity", activityType: "Sourcing", owner: "stretch" },
@@ -96,9 +116,9 @@ const TARGETS: Target[] = [
 
 const TASKS: Task[] = [
   // Today
-  { id: "k1", agent: SAMPLE_AGENT, date: TODAY, title: "โทรหา คุณเบิร์ด ตามเรื่องต่อรอง", done: false, order: 0, type: "build", targetId: "t_call", activityType: "Call", relatedLeadId: "L-0011", relatedLeadName: "คุณเบิร์ด" },
-  { id: "k2", agent: SAMPLE_AGENT, date: TODAY, title: "พาชม ชัยพฤกษ์ กับ คุณมีน", done: false, order: 1, type: "build", targetId: "t_show", activityType: "Show", relatedLeadId: "L-0007", relatedLeadName: "คุณมีน" },
-  { id: "k3", agent: SAMPLE_AGENT, date: TODAY, title: "เยี่ยมเจ้าของ อโศก คุยราคาใหม่", done: true, order: 2, type: "build", targetId: "t_owner", activityType: "Owner Visit", relatedListingId: "CASK001", relatedListingName: "Asoke Sky Residence" },
+  { id: "k1", agent: SAMPLE_AGENT, date: TODAY, title: "โทรหา คุณเบิร์ด ตามเรื่องต่อรอง", done: false, order: 0, type: "build", targetId: "k_buyerfollow", activityType: "Call", relatedLeadId: "L-0011", relatedLeadName: "คุณเบิร์ด" },
+  { id: "k2", agent: SAMPLE_AGENT, date: TODAY, title: "พาชม ชัยพฤกษ์ กับ คุณมีน", done: false, order: 1, type: "build", activityType: "Show", relatedLeadId: "L-0007", relatedLeadName: "คุณมีน" },
+  { id: "k3", agent: SAMPLE_AGENT, date: TODAY, title: "เยี่ยมเจ้าของ อโศก คุยราคาใหม่", done: true, order: 2, type: "build", targetId: "k_ownertalk", activityType: "Owner Visit", relatedListingId: "CASK001", relatedListingName: "Asoke Sky Residence" },
   { id: "k4", agent: SAMPLE_AGENT, date: TODAY, title: "อัพเดทพอร์ทัล Rama 2", done: false, order: 3, type: "work" },
   { id: "k5", agent: SAMPLE_AGENT, date: TODAY, title: "ออกกำลังกาย", done: false, order: 4, type: "personal" },
   // Yesterday
@@ -112,7 +132,9 @@ export function currentAgent(): string {
   return SAMPLE_AGENT;
 }
 
-/** Activity-source targets read their `current` live from the activity log. */
+/** Activity-source targets read their `current` live from the activity log. Everything
+ *  else (pipeline/manual/kpi) returns the stored value — for kpi/ratio that's the
+ *  numerator, wired later to a summary_kpi aggregation. */
 export function targetCurrent(t: Target, activities: Activity[] = listActivities()): number {
   if (t.source !== "activity" || !t.activityType) return t.manualCurrent;
   return activities
@@ -120,10 +142,45 @@ export function targetCurrent(t: Target, activities: Activity[] = listActivities
     .reduce((sum, a) => sum + a.count, 0);
 }
 
+/** Auto targets update themselves from the system (activity log, aggregated KPI tab, or
+ *  derived pipeline/revenue) — no manual +1. Only `manual` targets get the +1 button. */
+export function isAutoTarget(t: Target): boolean {
+  return t.source !== "manual";
+}
+
+/** Unified progress for any kind. For ratio, denom is the total and pct = current ÷ total;
+ *  otherwise denom is the goal number and pct = current ÷ target. */
+export function targetProgress(
+  t: Target,
+  activities?: Activity[]
+): { current: number; denom: number; pct: number } {
+  const current = targetCurrent(t, activities);
+  const denom = t.kind === "ratio" ? t.denominator ?? 0 : t.target;
+  const pct = denom > 0 ? Math.min(100, Math.round((current / denom) * 100)) : 0;
+  return { current, denom, pct };
+}
+
 export function targetPct(t: Target, current?: number): number {
   const cur = current ?? targetCurrent(t);
-  if (t.target <= 0) return 0;
-  return Math.min(100, Math.round((cur / t.target) * 100));
+  const denom = t.kind === "ratio" ? t.denominator ?? 0 : t.target;
+  if (denom <= 0) return 0;
+  return Math.min(100, Math.round((cur / denom) * 100));
+}
+
+/** Week of the month for the KPI focus rhythm: 1–7=w1, 8–14=w2, 15–21=w3, 22+=w4.
+ *  Derived from the stubbed TODAY so the design is stable; swap to a real clock at wiring. */
+export function currentWeekOfMonth(iso: string = TODAY): number {
+  const day = Number(iso.slice(8, 10));
+  if (day <= 7) return 1;
+  if (day <= 14) return 2;
+  if (day <= 21) return 3;
+  return 4;
+}
+
+/** Is this KPI the leadership focus for the given week? */
+export function isFocusWeek(t: Target, week: number = currentWeekOfMonth()): boolean {
+  if (t.focusWeekStart == null || t.focusWeekEnd == null) return false;
+  return week >= t.focusWeekStart && week <= t.focusWeekEnd;
 }
 
 export function listTargets(agent: string = SAMPLE_AGENT): Target[] {

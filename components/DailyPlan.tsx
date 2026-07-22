@@ -63,6 +63,15 @@ export function DailyPlan({ agent }: { agent: string }) {
   const toggle = (id: string) =>
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
+  const cycleType = (id: string) =>
+    setTasks((ts) =>
+      ts.map((t) =>
+        t.id === id
+          ? { ...t, type: TASK_TYPE_ORDER[(TASK_TYPE_ORDER.indexOf(t.type) + 1) % TASK_TYPE_ORDER.length] }
+          : t
+      )
+    );
+
   const add = () => {
     const title = draft.trim();
     if (!title) return;
@@ -141,6 +150,8 @@ export function DailyPlan({ agent }: { agent: string }) {
           {dayTasks.length ? `เสร็จ ${doneCount} จาก ${dayTasks.length}` : "ยังไม่มีแผนสำหรับวันนี้"}
         </div>
 
+        <TaskRatioBar tasks={dayTasks} />
+
         <ul className="divide-y divide-border">
           {dayTasks.map((t) => (
             <TaskRow
@@ -148,6 +159,7 @@ export function DailyPlan({ agent }: { agent: string }) {
               task={t}
               onToggle={() => toggle(t.id)}
               onEdit={() => setSheet({ open: true, task: t })}
+              onCycleType={() => cycleType(t.id)}
             />
           ))}
         </ul>
@@ -204,13 +216,16 @@ function TaskRow({
   task: t,
   onToggle,
   onEdit,
+  onCycleType,
 }: {
   task: Task;
   onToggle: () => void;
   onEdit: () => void;
+  onCycleType: () => void;
 }) {
   const target = getTarget(t.targetId);
   const repeats = t.repeat && t.repeat.freq !== "none";
+  const hasMeta = !!(target || t.relatedLeadName || t.relatedListingId);
   return (
     <li className="flex items-start gap-3 px-4 py-2.5">
       <button
@@ -246,29 +261,80 @@ function TaskRow({
           {repeats && <Repeat size={11} strokeWidth={1.75} className="text-text-subtle shrink-0" />}
           {t.notes && <StickyNote size={11} strokeWidth={1.75} className="text-text-subtle shrink-0" />}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 mt-1">
-          <Pill tone={TASK_TYPES[t.type].tone}>{TASK_TYPES[t.type].label}</Pill>
-          {target && (
-            <span className="inline-flex items-center gap-1 text-label text-text-subtle">
-              <TargetIcon size={11} strokeWidth={1.75} /> {target.label}
-            </span>
-          )}
-          {t.relatedLeadName && (
-            <span className="inline-flex items-center gap-1 text-label text-violet">
-              <UserRound size={11} strokeWidth={1.75} /> {t.relatedLeadName}
-            </span>
-          )}
-          {t.relatedListingId && (
-            <Link
-              href={`/listings/${t.relatedListingId}`}
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-label text-accent hover:underline"
-            >
-              <Building2 size={11} strokeWidth={1.75} /> {t.relatedListingName ?? t.relatedListingId}
-            </Link>
-          )}
-        </div>
+        {hasMeta && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {target && (
+              <span className="inline-flex items-center gap-1 text-label text-text-subtle">
+                <TargetIcon size={11} strokeWidth={1.75} /> {target.label}
+              </span>
+            )}
+            {t.relatedLeadName && (
+              <span className="inline-flex items-center gap-1 text-label text-violet">
+                <UserRound size={11} strokeWidth={1.75} /> {t.relatedLeadName}
+              </span>
+            )}
+            {t.relatedListingId && (
+              <Link
+                href={`/listings/${t.relatedListingId}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-label text-accent hover:underline"
+              >
+                <Building2 size={11} strokeWidth={1.75} /> {t.relatedListingName ?? t.relatedListingId}
+              </Link>
+            )}
+          </div>
+        )}
       </div>
+      {/* Work-type badge — right-aligned, tap to cycle (สร้างยอด / พื้นฐาน / ส่วนตัว). */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onCycleType();
+        }}
+        title="ประเภทงาน (แตะเพื่อเปลี่ยน)"
+        aria-label="ประเภทงาน"
+        className="shrink-0 mt-0.5"
+      >
+        <Pill tone={TASK_TYPES[t.type].tone}>{TASK_TYPES[t.type].label}</Pill>
+      </button>
     </li>
+  );
+}
+
+// Awareness ratio: the split between สร้างยอด (accent) and พื้นฐาน (blue). ส่วนตัว is excluded
+// from the ratio entirely (per design) — the bar answers "how much of my real work moves the
+// number vs. keeps things running." Hidden when there are no build/พื้นฐาน tasks.
+function TaskRatioBar({ tasks }: { tasks: Task[] }) {
+  const b = tasks.filter((t) => t.type === "build").length;
+  const w = tasks.filter((t) => t.type === "work").length;
+  const denom = b + w;
+  if (denom === 0) return null;
+  const bPct = Math.round((b / denom) * 100);
+  return (
+    <div className="px-4 py-3 border-b border-border">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-small text-text-muted">สัดส่วนงาน</span>
+        <span className="text-small text-text-muted">
+          <span className="num font-bold text-accent">{bPct}%</span> สร้างยอด
+        </span>
+      </div>
+      <div className="flex h-2 rounded-full overflow-hidden bg-surface-2">
+        {b > 0 && <div className="bg-accent transition-all" style={{ width: `${(b / denom) * 100}%` }} />}
+        {w > 0 && <div className="bg-blue transition-all" style={{ width: `${(w / denom) * 100}%` }} />}
+      </div>
+      <div className="flex gap-4 mt-2 text-small">
+        <RatioLegend dot="bg-accent" label="สร้างยอด" n={b} />
+        <RatioLegend dot="bg-blue" label="พื้นฐาน" n={w} />
+      </div>
+    </div>
+  );
+}
+
+function RatioLegend({ dot, label, n }: { dot: string; label: string; n: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-text-muted">
+      <span className={cn("size-2 rounded-full shrink-0", dot)} />
+      {label} <span className="num text-text font-semibold">{n}</span>
+    </span>
   );
 }
