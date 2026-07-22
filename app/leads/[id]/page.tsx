@@ -1,16 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Phone,
-  CalendarPlus,
-  Building2,
-  Activity,
-  History,
-  Banknote,
-} from "lucide-react";
+import { ArrowLeft, Building2, History, Banknote } from "lucide-react";
 import { Topbar } from "@/components/Topbar";
-import { Button } from "@/components/ui/Button";
+import { LeadHeader } from "@/components/LeadHeader";
+import { LeadTimeline } from "@/components/LeadTimeline";
+import { LeadAdminPanel } from "@/components/LeadAdminPanel";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatusBadge, Dot } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
@@ -48,56 +42,19 @@ export default async function LeadDetailPage({
           <ArrowLeft size={14} strokeWidth={1.75} /> กลับไป Lead
         </Link>
 
-        {/* Identity header — inline block (Shelter-style). Stacks on mobile. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3 min-w-0">
-            <Avatar name={lead.lead_name} tone="crimson" className="h-10 w-10 shrink-0" />
-            <div className="min-w-0">
-              <div className="num text-[11px] text-text-subtle">{lead.lead_id}</div>
-              <h1 className="text-h1 truncate">{lead.lead_name ?? lead.lead_id}</h1>
-              {lead.phone && (
-                <p className="text-small text-text-muted mt-0.5 inline-flex items-center gap-1 num">
-                  <Phone size={12} strokeWidth={1.75} />
-                  {lead.phone}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 sm:ml-auto">
-            <Button variant="secondary" size="sm" disabled>
-              แก้ไข
-            </Button>
-            <Button variant="secondary" size="sm" disabled>
-              <CalendarPlus size={15} strokeWidth={1.75} /> นัดชม
-            </Button>
-            {lead.phone ? (
-              <a
-                href={`tel:${lead.phone}`}
-                className="inline-flex items-center justify-center gap-1.5 h-7 px-2.5 text-small font-medium rounded-md bg-accent text-text-onaccent hover:bg-accent-hover transition-colors whitespace-nowrap"
-              >
-                <Phone size={15} strokeWidth={1.75} /> ติดต่อ
-              </a>
-            ) : (
-              <Button size="sm" disabled>
-                <Phone size={15} strokeWidth={1.75} /> ติดต่อ
-              </Button>
-            )}
-          </div>
-        </div>
+        {/* Identity header — name/id + contact (phone + LINE) + edit (gated leads.edit) */}
+        <LeadHeader lead={lead} />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start">
           {/* Main column */}
           <div className="flex flex-col gap-4 min-w-0">
-            {/* Activity — placeholder until activity logging is wired */}
-            <Card>
-              <CardHeader>
-                <CardTitle>กิจกรรม</CardTitle>
-                <Pill>เร็ว ๆ นี้</Pill>
-              </CardHeader>
-              <CardContent>
-                <Empty icon={Activity}>ยังไม่มีกิจกรรม</Empty>
-              </CardContent>
-            </Card>
+            {/* Activity + assignment history — admin uses this as reassign context */}
+            <LeadTimeline
+              leadId={lead.lead_id}
+              sale={lead.sale_id ?? ""}
+              dateReceived={lead.date_received}
+              listingCode={lead.listing_code}
+            />
 
             {/* Interested listing (real) */}
             <Card>
@@ -158,6 +115,9 @@ export default async function LeadDetailPage({
 
           {/* Sidebar (real data) */}
           <div className="flex flex-col gap-4">
+            {/* Admin follow-up (recheck + complaint) — only shows for admin/leadership */}
+            <LeadAdminPanel leadId={lead.lead_id} stage={lead.pipeline_stage} />
+
             <Card>
               <CardHeader>
                 <CardTitle>ข้อมูล Lead</CardTitle>

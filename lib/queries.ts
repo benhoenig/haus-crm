@@ -4,6 +4,7 @@ export interface CrmRow {
   lead_id: string;
   lead_name: string | null;
   phone: string | null;
+  line_id?: string | null;
   potential: string | null;
   lead_status: string | null;
   pipeline_stage: string | null;
@@ -75,7 +76,7 @@ export async function getLead(id: string): Promise<CrmRow | null> {
   const { data } = await supabase
     .from("main_6_buyer_crm")
     .select(
-      "lead_id,lead_name,phone,potential,lead_status,pipeline_stage,lead_type,sale_id,listing_code,budget,commission,last_follow_date,closing_date,date_received"
+      "lead_id,lead_name,phone,line_id,potential,lead_status,pipeline_stage,lead_type,sale_id,listing_code,budget,commission,last_follow_date,closing_date,date_received"
     )
     .eq("lead_id", id)
     .maybeSingle();
