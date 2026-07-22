@@ -29,6 +29,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     perms: [
       { key: "leads.view_all", label: "ดู Lead ทั้งหมด" },
       { key: "leads.view_own", label: "ดู Lead ของตัวเอง", hint: "เฉพาะที่ได้รับมอบหมาย" },
+      { key: "leads.create", label: "เพิ่ม Lead (ปุ่มลอย)", hint: "รับสาย/แชท แล้วบันทึกลูกค้าเป็นลีด" },
       { key: "leads.assign", label: "มอบหมาย Lead" },
       { key: "leads.edit", label: "แก้ไข Lead" },
     ],
@@ -97,7 +98,18 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     key: "masterdata",
     label: "ข้อมูลหลัก",
-    perms: [{ key: "masterdata.govern", label: "จัดการโซน & ชุดข้อมูลอ้างอิง" }],
+    perms: [
+      {
+        key: "masterdata.govern",
+        label: "จัดการโซน & เทมเพลตกิจกรรม/KPI",
+        hint: "โซน · ประเภทกิจกรรม · เทมเพลต KPI — CEO/หัวหน้า",
+      },
+      {
+        key: "reference.manage",
+        label: "จัดการรายการอ้างอิง (ประเภททรัพย์ / ช่องทาง / ฟิลด์ Lead)",
+        hint: "ประเภททรัพย์ · Marketing Channel · Contact By · เพศ · สัญชาติ",
+      },
+    ],
   },
   {
     key: "system",
@@ -148,7 +160,12 @@ export interface OrgUser {
 //   • Agents are own-scoped (matches the created_by/assigned_to contact privacy already
 //     built) but DO see team performance — the leaderboard is intentionally public.
 //   • Compensation + PII are CEO/HR only, and are two SEPARATE gates.
-//   • activity.log goes to everyone who carries a commission rate (incl. Benz + Pui).
+//   • activity.log (the +บันทึก FAB) goes to roles that DO logged field actions — sales,
+//     marketing (Reels/content), sales leader, CEO. NOT Listing Support (portal-only) or Admin.
+//   • Master data is split into two gates: reference.manage = the light lead/listing
+//     vocabularies (property type, marketing channel, contact-by, gender, nationality),
+//     delegated to Listing Support; masterdata.govern = the structural/leadership data
+//     (zones = the listing↔lead↔match join key, activity types, KPI templates), CEO-only.
 export const SEED_ROLES: Role[] = [
   {
     id: "ceo",
@@ -161,6 +178,9 @@ export const SEED_ROLES: Role[] = [
     id: "agent",
     name: "Agent (Sales)",
     description: "เซลส์ / ดูแลดีลของตัวเอง",
+    // No performance.view_team: the ผลงาน group (Actions/KPI + team) is leadership-only.
+    // Agents keep performance.view_own for their own แผนวันนี้. The dashboard leaderboard is
+    // ungated, so agents still see it.
     permissions: [
       "leads.view_own",
       "leads.edit",
@@ -171,15 +191,17 @@ export const SEED_ROLES: Role[] = [
       "lastmatch.add",
       "activity.log",
       "performance.view_own",
-      "performance.view_team",
       "targets.stretch",
     ],
   },
   {
     id: "listing_support",
     name: "Listing Support",
-    description: "งานสนับสนุนการลงประกาศ/คลังทรัพย์",
+    description: "งานสนับสนุนการลงประกาศ/คลังทรัพย์ + มอบหมายดีล",
     permissions: [
+      // Lead assignment + intake is a core back-office job for this role.
+      "leads.create",
+      "leads.assign",
       // Needs every owner's contact to coordinate listings — not own-scoped.
       "contacts.view_all",
       "listings.view",
@@ -187,7 +209,11 @@ export const SEED_ROLES: Role[] = [
       "listings.marketing",
       "projects.edit",
       "lastmatch.add",
-      "activity.log",
+      // Governs the lead/listing reference vocabularies they live in (property type, marketing
+      // channel, contact-by, gender, nationality) — NOT zones / activity / KPI (masterdata.govern).
+      "reference.manage",
+      // No activity.log: this role only manages/posts listings on portals — it doesn't do
+      // the logged field actions (Owner Visit / Show / Call…), so no +บันทึก activity FAB.
       "performance.view_own",
       "targets.stretch",
     ],
@@ -210,6 +236,7 @@ export const SEED_ROLES: Role[] = [
     description: "หัวหน้าทีมขาย (ยังไม่มีผู้ดำรงตำแหน่ง)",
     permissions: [
       "leads.view_all",
+      "leads.create",
       "leads.edit",
       "leads.assign",
       "contacts.view_all",
@@ -227,9 +254,10 @@ export const SEED_ROLES: Role[] = [
   {
     id: "admin",
     name: "Admin",
-    description: "งานธุรการ / มอบหมายดีล (ยังไม่มีผู้ดำรงตำแหน่ง)",
+    description: "งานธุรการ / รับลีดทุกช่องทาง + มอบหมายดีล (ยังไม่มีผู้ดำรงตำแหน่ง)",
     permissions: [
       "leads.view_all",
+      "leads.create",
       "leads.edit",
       "leads.assign",
       "contacts.view_all",

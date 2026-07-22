@@ -14,6 +14,7 @@ import {
   SOURCE_LABEL,
   type KpiTemplate,
 } from "@/lib/masterdata";
+import { LEAD_SOURCES, CONTACT_BYS, GENDERS, NATIONALITIES } from "@/lib/leads";
 
 // ---- Generic editable label list (in-memory) --------------------------------
 function EditableList({ seed, placeholder }: { seed: string[]; placeholder: string }) {
@@ -65,6 +66,31 @@ function EditableList({ seed, placeholder }: { seed: string[]; placeholder: stri
   );
 }
 
+// ---- Titled reference-list card (one controlled vocabulary) -----------------
+function RefListCard({
+  title,
+  note,
+  seed,
+  placeholder,
+}: {
+  title: string;
+  note?: string;
+  seed: string[];
+  placeholder: string;
+}) {
+  return (
+    <Card>
+      <div className="px-4 h-11 flex items-center gap-2 border-b border-border">
+        <span className="text-h3">{title}</span>
+        {note && <span className="text-label text-text-subtle">· {note}</span>}
+      </div>
+      <CardContent>
+        <EditableList seed={seed} placeholder={placeholder} />
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---- Property types ---------------------------------------------------------
 export function PropertyTypesManager() {
   return (
@@ -73,6 +99,21 @@ export function PropertyTypesManager() {
         <EditableList seed={PROPERTY_TYPES} placeholder="เพิ่มประเภททรัพย์…" />
       </CardContent>
     </Card>
+  );
+}
+
+// ---- Lead reference fields (Marketing Channel / Contact By / Gender / Nationality) ----
+// The controlled vocabularies the lead-intake form uses. Design-first: these seed from the
+// hardcoded enums in lib/leads.ts and edit label-only in memory. Wiring: promote to governed
+// tables (id + label) so the intake form + reports read the same source (see DATA_MODEL).
+export function LeadReferenceManager() {
+  return (
+    <div className="flex flex-col gap-4">
+      <RefListCard title="Marketing Channel" note="ช่องทางที่ลีดเข้ามา" seed={LEAD_SOURCES.map((s) => s.label)} placeholder="เพิ่มช่องทาง…" />
+      <RefListCard title="Contact By" note="วิธี/กล่องที่ติดต่อเข้ามา" seed={CONTACT_BYS.map((s) => s.label)} placeholder="เพิ่มวิธีติดต่อ…" />
+      <RefListCard title="เพศ" seed={GENDERS.map((g) => g.label)} placeholder="เพิ่ม…" />
+      <RefListCard title="สัญชาติ" seed={NATIONALITIES} placeholder="เพิ่มสัญชาติ…" />
+    </div>
   );
 }
 

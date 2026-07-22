@@ -1,40 +1,62 @@
 "use client";
 
 import * as React from "react";
-import { ShieldCheck, Map, Home, Activity, Target, Info } from "lucide-react";
+import { ShieldCheck, Map, Home, ListChecks, Activity, Target, Info, Lock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { type Zone } from "@/lib/zones";
 import { RolesManager } from "@/components/RolesManager";
 import { ZonesAdmin } from "@/components/ZonesAdmin";
 import {
   PropertyTypesManager,
+  LeadReferenceManager,
   ActionTypesManager,
   KpiTemplatesManager,
 } from "@/components/MasterDataManagers";
+import { useRbac } from "@/components/RbacProvider";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-type SectionKey = "roles" | "zones" | "property_types" | "action_types" | "kpi";
-type Section = { key: SectionKey; label: string; icon: LucideIcon };
+type SectionKey = "roles" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi";
+// Each section is gated to a permission — the sub-nav only shows what the viewer can govern,
+// so Listing Support (reference.manage) sees the reference lists but not roles/zones/KPI.
+type Section = { key: SectionKey; label: string; icon: LucideIcon; perm: string };
 
 // Single settings hub (Shelter-style): add a section here and it appears in the sub-nav.
-// The master-data vocabularies are the CEO-governed canonical lists everything references.
 const SECTIONS: Section[] = [
-  { key: "roles", label: "บทบาท & สิทธิ์", icon: ShieldCheck },
-  { key: "zones", label: "โซน", icon: Map },
-  { key: "property_types", label: "ประเภททรัพย์", icon: Home },
-  { key: "action_types", label: "ประเภทกิจกรรม", icon: Activity },
-  { key: "kpi", label: "เป้าหมาย KPI", icon: Target },
+  { key: "roles", label: "บทบาท & สิทธิ์", icon: ShieldCheck, perm: "roles.manage" },
+  { key: "zones", label: "โซน", icon: Map, perm: "masterdata.govern" },
+  { key: "property_types", label: "ประเภททรัพย์", icon: Home, perm: "reference.manage" },
+  { key: "lead_fields", label: "ช่องทาง & ฟิลด์ Lead", icon: ListChecks, perm: "reference.manage" },
+  { key: "action_types", label: "ประเภทกิจกรรม", icon: Activity, perm: "masterdata.govern" },
+  { key: "kpi", label: "เป้าหมาย KPI", icon: Target, perm: "masterdata.govern" },
 ];
 
 export function SettingsView({ zones }: { zones: Zone[] }) {
-  const [section, setSection] = React.useState<SectionKey>("roles");
+  const { can } = useRbac();
+  const visible = SECTIONS.filter((s) => can(s.perm));
+  const [section, setSection] = React.useState<SectionKey>(() => visible[0]?.key ?? "roles");
+
+  // Keep the selection valid as the viewer (view-as) changes and the visible set shifts.
+  const visibleKeys = visible.map((s) => s.key).join(",");
+  React.useEffect(() => {
+    if (!visible.some((s) => s.key === section)) setSection(visible[0]?.key ?? "roles");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKeys]);
+
+  if (visible.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+        <Lock size={22} strokeWidth={1.5} className="text-text-subtle" />
+        <p className="text-small text-text-subtle">คุณไม่มีสิทธิ์เข้าถึงการตั้งค่า</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-4 items-start">
       {/* Section sub-nav */}
       <nav className="flex lg:flex-col gap-px overflow-x-auto lg:overflow-visible lg:sticky lg:top-[72px]">
-        {SECTIONS.map((s) => (
+        {visible.map((s) => (
           <button
             key={s.key}
             onClick={() => setSection(s.key)}
@@ -61,8 +83,17 @@ export function SettingsView({ zones }: { zones: Zone[] }) {
         {section === "zones" && <ZonesSection zones={zones} />}
         {section === "property_types" && (
           <>
-            <SectionHeader title="ประเภททรัพย์" desc="รายการประเภททรัพย์กลาง · จัดการโดย CEO" />
+            <SectionHeader title="ประเภททรัพย์" desc="รายการประเภททรัพย์กลาง · จัดการโดย CEO / Listing Support" />
             <PropertyTypesManager />
+          </>
+        )}
+        {section === "lead_fields" && (
+          <>
+            <SectionHeader
+              title="ช่องทาง & ฟิลด์ Lead"
+              desc="รายการที่ฟอร์มรับลีดใช้ (Marketing Channel · Contact By · เพศ · สัญชาติ) · จัดการโดย CEO / Listing Support"
+            />
+            <LeadReferenceManager />
           </>
         )}
         {section === "action_types" && (

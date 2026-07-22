@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   CalendarCheck,
-  Columns3,
   Users,
   UserCog,
   Share2,
@@ -33,8 +32,9 @@ export interface NavGroup {
 }
 
 // Grouped by what the user is *doing*, not 1:1 with source tabs:
-//   ดีล = active deals · คลังทรัพย์ = inventory agents use · ผลงาน = performance ·
-//   ตั้งค่า = master data the CEO governs (role-gated later).
+//   เซลล์ = what sales work on daily (leads, listings, assignment) ·
+//   คลังข้อมูล = reference data (contacts, projects, comparables) ·
+//   ผลงาน = performance (leadership-only) · ตั้งค่า = master data the CEO governs.
 export const NAV: NavGroup[] = [
   {
     title: "ภาพรวม",
@@ -44,41 +44,44 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    title: "ดีล",
+    // Back-office main job (lead assignment) — pinned ABOVE เซลล์ so Admin / Listing Support
+    // land on it first. Gated to leads.assign, so sales never see this section.
+    title: "แอดมิน",
+    admin: true,
     items: [
-      { href: "/pipeline", label: "ไปป์ไลน์", icon: Columns3, perm: ["leads.view_all", "leads.view_own"] },
-      { href: "/leads", label: "Lead", icon: Users, perm: ["leads.view_all", "leads.view_own"] },
-      { href: "/assign", label: "มอบหมาย Lead", icon: Share2, perm: "leads.assign" },
+      { href: "/assign", label: "Lead Database", icon: Share2, perm: ["leads.view_all", "leads.assign"] },
     ],
   },
   {
-    title: "คลังทรัพย์",
+    title: "เซลล์",
     items: [
+      { href: "/leads", label: "Lead", icon: Users, perm: ["leads.view_all", "leads.view_own"] },
       { href: "/listings", label: "ทรัพย์", icon: Building2, perm: "listings.view" },
+    ],
+  },
+  {
+    title: "คลังข้อมูล",
+    items: [
+      { href: "/contacts", label: "ผู้ติดต่อ", icon: Contact, perm: ["contacts.view_all", "contacts.view_own"] },
       { href: "/projects", label: "โครงการ", icon: Landmark, perm: "listings.view" },
       { href: "/last-match", label: "Last Match", icon: Handshake, perm: ["listings.view", "lastmatch.add"] },
     ],
   },
   {
-    title: "ติดต่อ",
-    items: [
-      { href: "/contacts", label: "ผู้ติดต่อ", icon: Contact, perm: ["contacts.view_all", "contacts.view_own"] },
-    ],
-  },
-  {
+    // Leadership-only: gated to performance.view_team (agents don't have it).
     title: "ผลงาน",
     items: [
-      { href: "/performance", label: "Actions / KPI", icon: Activity, perm: ["performance.view_team", "performance.view_own"] },
+      { href: "/performance", label: "Actions / KPI", icon: Activity, perm: "performance.view_team" },
       { href: "/team", label: "ทีม / บุคคล", icon: UserCog, perm: ["people.manage", "performance.view_team"] },
     ],
   },
   {
-    // Single settings hub; sections (roles, zones, master-data) live inside the page.
+    // Single settings hub, pinned to the bottom; sections (roles, zones, master-data) live inside.
     title: "",
     admin: true,
     bottom: true,
     items: [
-      { href: "/settings", label: "ตั้งค่า", icon: Settings, perm: ["roles.manage", "masterdata.govern"] },
+      { href: "/settings", label: "ตั้งค่า", icon: Settings, perm: ["roles.manage", "masterdata.govern", "reference.manage"] },
     ],
   },
 ];
