@@ -92,6 +92,15 @@ populated FK). Assigning real IDs + name-normalization is an import task — see
   (counts: Call 43 · Show 35 · Follow 28 · Lead 25 · Close 4 · Appoint 4 · Nego 2 · Win 2)
 - `X` Lead Type → `Buyer - Buy`(149) · `Buyer - Rent`(16) · `Co-Agent`(10)
 
+**Lead tags (new, design-first 2026-07-18).** `/leads` gained **free-form tags** on the
+table — add/create via an inline per-row popover, remove via chip ×, plus a **group-by-tag**
+view (a lead shows under each of its tags + an "ไม่มีแท็ก" group). The source Buyer Focus
+sheet has **no tag column**, so this is a new concept: `lib/tags.ts` (sample + local state).
+**Wire to two new tables:** `tags(id, label)` (the pool — grows as users create tags) +
+`lead_tags(lead_id, tag_id)` (many-to-many assignments). Tag colour is **derived from the
+label** (stable hash → tone), so no colour column is needed. Also removed `/pipeline` this
+date (redundant with the leads stage filter) — `lib/pipeline.ts` STAGES stays (leads uses it).
+
 ---
 
 ## 3. `Projects` — project knowledge base  (cols A–Y, 25 fields)  ⛔ not designed
@@ -309,6 +318,7 @@ convenience, not enforcement.
 | financials view_comp / payroll | ✓ / ✓ | – | – | – | – | – | ✓ / ✓ |
 | people manage / view_sensitive | ✓ / ✓ | – | – | – | – | – | ✓ / ✓ |
 | masterdata.govern · roles.manage | ✓ | – | – | – | – | – | – |
+| reference.manage | ✓ | – | **✓** | – | – | – | – |
 
 \*Seeded but **unstaffed** (0 users = 0 real access). They document the org's stated future
 (lead dispatch, player-coach transition, payroll) and are testable via view-as. CEO deletes
@@ -324,6 +334,12 @@ any that never get used.
   Support) and **Pui** (Marketing), whose work counts toward KPI.
 - Listing Support gets `contacts.view_all` (needs every owner's contact to coordinate
   listings), resolving the earlier "duties undefined" note.
+- **Master data is two gates, not one.** `masterdata.govern` = structural/leadership data
+  (zones — the listing↔lead↔match join key, action types, KPI templates), CEO-only.
+  `reference.manage` = the light lead/listing vocabularies (property type, marketing channel,
+  contact-by, gender, nationality), **delegated to Listing Support** (they live in listings +
+  do lead intake, so they own these lists). `/settings` shows only the sections a viewer can
+  govern — Listing Support sees ประเภททรัพย์ + ช่องทาง & ฟิลด์ Lead, nothing else.
 
 **Built (design-first):** app-wide **gating** via `can()` (`RbacProvider` — shared store
 so RolesManager edits live-change access) + a **"view as" switcher** in the sidebar;
@@ -353,12 +369,31 @@ bumps a monthly target. HAUS already has the middle piece Solo Gang lacks — th
 
 **Three layers to add (design-first, sample data):**
 
-- **เป้าหมาย / Targets** — monthly, per agent, per metric. `kind` = count / ฿ / check.
-  `source` = `activity` (auto-tracked: `current` = count of matching activity rows this
-  month, tied to an `activity_type` like Call/Show/Owner Visit) · `pipeline` (derived:
-  Wins, commission) · `manual` (+1 button). Ties to the source **`KPI Target`** tab.
-  **Owner = both:** manager sets the *official* target; agent adds *personal stretch*
-  goals on top (visually distinguished).
+- **เป้าหมาย / Targets** — monthly, per agent, per metric. `kind` = count / ฿ / check /
+  **ratio**. `source` = `activity` (auto-tracked: `current` = count of matching activity
+  rows this month, tied to an `activity_type`) · `pipeline` (derived: Wins, commission) ·
+  `manual` (+1 button) · **`kpi`** (aggregated from the `summary_kpi` tab). **Owner =
+  both:** manager sets the *official* target; agent adds *personal stretch* goals on top
+  (visually distinguished).
+  - **Official = the 4 leadership KPIs (locked 2026-07-17).** The ทางการ (ตั้งโดยหัวหน้า)
+    section now *is* the sales-process KPI set from the HAUS dashboard (`summary_kpi`):
+    **Owner Talk** (ratio), **Sourcing** (count), **Survey** (count), **Buyer Follow**
+    (ratio) — replacing the old ad-hoc Call/Show/Owner-Visit/Win/Commission list
+    (commission + deals still live on `/performance`). Each carries a **weekly-focus
+    window** (`focusWeekStart..focusWeekEnd` + `focusLabel`): Owner Talk = wk1, Sourcing +
+    Survey = wk2–3, Buyer Follow = wk4. The KPI whose window contains the current week is
+    highlighted (accent border + dot + brighter bar) — the leadership pacing rhythm.
+  - **`ratio` kind = a %-of-a-universe KPI** (Owner Talk, Buyer Follow): `manualCurrent`
+    holds the numerator (done), **`denominator`** holds the total; `pct = current ÷
+    denominator`, goal always 100%. `target` stores the % goal (100). **Wiring:** ratio
+    KPIs cannot come from a raw activity count — they need the denominator, so `source =
+    kpi` reads both numerator + denominator from `summary_kpi` (columns `ownertalk_done` /
+    `ownertalk_total`, `buyerfollow_done` / `buyerfollow_total`, `sourcing_done` /
+    `sourcing_target`, `survey_done` / `survey_target`). `activityType` on a `kpi` target
+    is **informational only** (documents the driving behaviour), not the value source.
+  - KPI targets are **auto** (no manual +1), same as `activity`-source. Personal stretch
+    goals added via the **+เพิ่ม** sheet are `count`/`฿`, auto (if linked to an activity)
+    or `manual` (+1).
 - **แผนวันนี้ / Daily Plan** — per agent/day: task list + completion ring. Each task has
   a **type** (awareness split — real-estate cut of Solo Gang's building/working/personal,
   e.g. หาโอกาส / งานประจำ / ส่วนตัว), and optional links to a **target** + a **CRM
@@ -376,9 +411,175 @@ Sales Leader; *executing* the plan + adding stretch goals = Agent. Makes ผล�
 coaching surface (leader sees team vs target).
 
 **New tables (wire later):** `targets` (agent, month, metric, kind, target, current,
-source, activity_type?, owner) · `tasks` (agent, date, title, done, order, type,
+**denominator?** (ratio), source, activity_type?, owner, **focus_week_start?**,
+**focus_week_end?**, **focus_label?**) · `tasks` (agent, date, title, done, order, type,
 target_id?, activity_type?, related_lead_id?, related_listing_id?, recurring). Auto-track
-= an aggregation over `activities`, not a stored duplicate.
+= an aggregation over `activities`, not a stored duplicate; `source=kpi` targets aggregate
+over `summary_kpi` (numerator + denominator), not `activities`.
+
+---
+
+## Notifications — Topbar bell (built design-first, 2026-07-15)
+
+**Decided:** a lean, **per-recipient in-app feed**. Bell + unread badge in the `Topbar`
+(always rendered, deliberately outside the `actions` slot so pages passing their own
+actions still get it) → right-anchored dropdown panel (`NotificationBell.tsx`), grouped
+วันนี้ / เมื่อวาน / ก่อนหน้า. `NotificationsProvider` holds the feed and follows the
+**view-as switcher**, so switching persona switches the bell. Sample data + model live in
+`lib/notifications.ts`; entity ids are **real** (`main_6_buyer_crm` / `v_main_listing`) so
+deep links resolve today.
+
+**Model** (`AppNotification`): `id · userId · type · title · body? · entity? · entityId? ·
+actor? · createdAt · readAt?`. Named `AppNotification` on purpose — a bare `Notification`
+shadows the DOM global.
+
+**`type` enum** (agreed with the client — adding one = a union member + `NOTIFICATION_META`):
+`lead_assigned` · `lead_stage_changed` · `deal_won` · `task_due` · `target_milestone` ·
+`listing_new_in_zone` · `listing_price_changed`.
+
+**Wiring notes — the traps:**
+- ⚠️ **`userId` is the LOGIN id (`u_pup`), not `Employee.code`.** Source rows address agents
+  by `sale_id` = `S-001`, so producing a notification means joining
+  `sale_id → employees.code → employees.id`. Getting this wrong silently sends every
+  notification to nobody.
+- **RLS is the whole security model here** — a notification is private to its recipient:
+  `user_id = auth.uid()`. There is no permission gate on the bell (everyone has a feed);
+  scoping *is* the gate. Note `deal_won` bodies carry deal values, so a mis-scoped row
+  leaks money that `financials.view_comp` would otherwise hide.
+- **Stored rendered text is a deliberate tradeoff.** Copy edits do **not** retro-apply, and
+  values freeze as written ("งบ 6 ล้าน" stays after the budget changes). Good for an
+  audit-ish feed and keeps rows readable without joins — but re-wording later needs a
+  backfill. Swap to `type` + a params payload only if that becomes a real problem.
+- **Read state is in-memory only** — survives client-side navigation, resets on reload.
+  `markRead`/`markAllRead` must write `read_at`.
+- `NOW` (stubbed clock) mirrors `momentum.TODAY` — one stubbed "today" across the app.
+  `dayBucket` compares the **+07:00 calendar date** anchored at noon UTC; using the raw
+  `Date` would bucket by the UTC day and mis-group anything before 07:00 Thai.
+- Relative time is `เมื่อสักครู่` / `N นาที` / `N ชม.` under a day, then an absolute
+  `12 ก.ค.`. **Not "N วัน"** — elapsed-hours flooring makes a 47h item read "1 วัน" while
+  the panel groups it under ก่อนหน้า, so the row would contradict its own header.
+
+**NOT built — LINE push (decided against, 2026-07-15).** `Employee.lineUserId` exists in
+the HR Sheet and Thai teams live on LINE, so this is the obvious next channel. Chosen to
+stay lean: **there are no `channel` / `delivered_at` columns.** Adding LINE later = a
+migration + a LINE Messaging API worker keyed on `lineUserId`.
+
+**Nothing produces notifications yet.** The feed is seeded sample data — no trigger,
+job, or realtime subscription exists. See the checklist for the producer list.
+
+---
+
+## Lead intake & assignment — admin surface (built design-first, 2026-07-20)
+
+The **Admin / Listing Support** role receives leads across every channel (calls, LINE, FB,
+walk-in…), logs the customer + requirements, and assigns to a sales rep. Built from the
+Custom Dashboard `LeadForm/CompanyLeads` + Shelter `ai-paste-box` references.
+
+**Files:** `lib/leads.ts` (intake model) · `lib/ai/parseLead.ts` (paste-parse stub) ·
+`components/{AiPasteBox,LeadForm,LeadIntakeFab,NewLeadsProvider,LeadAssignment,LeadTimeline}.tsx` ·
+`lib/leadTimeline.ts`.
+
+**Flow:** a **`+ เพิ่มลีด` FAB** (gated to the new **`leads.create`** perm — Admin / Listing
+Support / Sales Leader / CEO) opens a shared `LeadForm` (two modes: `admin` adds an assign-to
+picker; `rep` files to self). **Buyer vs owner** is one axis that swaps labels + the
+requirements block. A **paste-to-parse** box pre-fills the form from freeform text. Submit is
+optimistic → the lead appears in the rebuilt **`/assign`** management table; **`/leads/[id]`**
+now shows a real **activity + assignment-history timeline** so admin has reassign context.
+
+**Aligned to the real "Lead Submission" form** (Google Sheet `1uzSiHqZ…`, tab *Lead Submission*,
+checked 2026-07-20). That form's columns: Lead Type · Listing Code · Listing Name/Project ·
+Lead Name · Phone · **LINE ID** · Gender · Nationality · Remark · **Sales Assigned** (nickname
+— incl. **Stone**, so Stone is assignable) · วันที่/ช่วงเวลาติดต่อ · **Marketing Channel** (+ อื่นๆ
+specify) · **Contact By** · Status · complaint-tracking cols · Lead-Id. It has **no Potential and
+no Bedrooms** (dropped from the form) and keeps budget/requirements in free-text **Remark**.
+
+**Captured at intake** (`LeadForm`): name · phone · **LINE ID** · **Marketing Channel** ·
+**Contact By** · **Gender** · **Nationality** · **contact date+time** · searchable listing
+(code/name) · assign-to (default = owner-sale) · buyer/owner + role requirements (zone/type/
+purpose) · budget · remark. `lead_type` set by *who files* (rep→Lead, admin→Company).
+
+**Admin follow-up process** (`LeadAdminPanel` on `/leads/[id]`, gated to `leads.assign`) —
+tracks the lead AFTER intake, mirroring the sheet's Recheck / Customer Complain columns:
+**recheck** (did the assigned sale contact the customer? pending/contacted) + **complaint**
+(toggle → status เปิด/กำลังแก้ไข/ปิด + remark). State lives in `NewLeadsProvider.process`
+(per lead) — wire to the lead row / an `audit_log` update.
+
+**New columns vs `main_6_buyer_crm` (add at wiring):** `source` (Marketing Channel), `contact_by`,
+`line_id`, `gender`, `nationality`, `contact_date`/`contact_time`, `recheck_status`, complaint
+fields (`has_complaint`/`complaint_status`/`complaint_remark`), and a `requirements`/remark block.
+
+**Default assignment = the interested listing's owner-sale** (`defaultAssignee`: listing →
+zone → employees), overridable by admin/CEO. Sample listing→sale lives in `lib/leads.ts`;
+wire to the real listing/zone join. **Assignable = `listSalesAgents()`** (sales dept). Note the
+existing **sale_id↔nickname** mismatch: real `sale_id` is a code (S-001), the assign UI uses
+nicknames — the join must be resolved at wiring (a fallback option shows the raw value meanwhile).
+
+**⚠️ All of this is design-first / not persisted.** Intake writes are stubbed (`console.log` +
+optimistic `NewLeadsProvider` state); assignment overrides + the reassign audit trail live in
+that provider; the timeline is seeded sample activity. **AI paste is a heuristic STUB** matching
+the real Shelter contract (`{ ok, note, draft }` · nullable-everything · enum-locked · "return
+null, never guess") — swap `parseLeadText`'s body for the OpenAI call (gpt-4.1 server action +
+`OPENAI_API_KEY`) and the UI/handlers don't change. Wire: intake → Supabase insert; assign →
+update + `audit_log` row; timeline → real activities (`related_lead_id`) + audit_log.
+
+---
+
+## Dashboard (analytics) — ported from HAUS V2 (built design-first, 2026-07-18)
+
+The home page (`/`, `แดชบอร์ด`) is now the analytics dashboard, ported from the **HAUS V2
+sales dashboard** (the Google-Sheets `summary_*` model). Structure mirrors it exactly:
+a sub-tab bar of **ภาพรวม (team)** + **one tab per selling agent** (Stone/Pup/Game/Q/Mhow/
+Golf), driven by a **month-range picker** (เดือนนี้ / 3 เดือน / 6 เดือน / ปีนี้).
+
+**Files:** `lib/dashboard.ts` (data + helpers) · `components/dashboard/*` (Dashboard entry,
+DashboardOverview, DashboardAgent, parts, **theme**) · `components/ui/AreaChart.tsx`
+(hand-built SVG area chart — **no chart dependency**).
+
+**Visual system = HAUS V2's, not the CRM shell's (2026-07-18).** `components/dashboard/theme.ts`
+ports HAUS V2's `tokens.js` verbatim: deep **burgundy `#63041c`** accent, champagne **gold
+`#c9a96e`** for #1, **green** activity heatmap ramp, 16px card radius, `#f8f8f8` canvas,
+amber-brown (never red) negative deltas. This is the ONE surface using the burgundy — the
+CRM's own maroon-reserved-for-logo rule — because the client wanted the dashboard to match
+the HAUS V2 look; the rest of the CRM keeps its brighter crimson. Components are inline-styled
+from `theme.ts` (mirroring how HAUS V2 keeps a single token source) rather than Tailwind
+tokens, so the port stays pixel-faithful. If brand consistency later wins over fidelity,
+swap `theme.ts`'s `accent` to the CRM crimson and it re-themes in one place. Signature pieces
+ported: editorial `SectionHead` ([ n / 07 ] + big display title), champagne `Recognition`
+spotlight, green day×agent heatmap grid.
+
+**The core metric split (same as HAUS V2), enforced in `lib/dashboard.ts`:**
+- **FLOW** (revenue, closed_count, new_leads, new_listings, actions) — summed across the
+  selected months (`sumFlow`) → **obeys the picker**.
+- **SNAPSHOT** (active buyers/listings, A-list, overdue leads) — "as of now" → **ignores
+  the picker**.
+- The revenue **trend chart** always shows the full data year with the monthly goal line
+  (picker-independent), like HAUS's "รายได้ปีนี้" card.
+- Everything **reconciles**: trend Σ = leaderboard Σ = hero total, because one sample
+  dataset drives all of it.
+
+**Components ported:** HeroProgress (revenue vs CEO goal + **MTD pace projection** + today
+marker) · RevenueTrend (SVG area + goal line) · RevenueLeaderboard (bronze #1) · TeamKpi
+Tracker (the 4 process KPIs, agents ranked, **weekly-focus** highlight) · per-agent
+Period/Annual cards · InputCards (buyers/listings snapshots) · AgentKpiRows · ActionBreak
+down (owner/buyer/other) · Activity heatmap (day×agent intensity).
+
+**⚠️ All dashboard data is SAMPLE** (`lib/dashboard.ts`), deterministic (seeded, SSR-stable).
+Shapes mirror the eventual Supabase rollup so wiring is a source swap. **Wiring map:**
+
+| Dashboard data | Supabase source (build these) |
+|---|---|
+| `MONTHLY_FLOW` (agent, month, revenue, closed_count, new_leads, new_listings) | `v_summary_overview_monthly` — a monthly rollup materialized view |
+| `SNAP` (active_buyers/listings, A-list, overdue) | live counts over `main_6_buyer_crm` + `v_main_listing`, or `v_sale_status` |
+| `KPI` (the 4 KPIs, done/total) | `v_summary_kpi` — same contract as the momentum ratio KPIs |
+| action breakdown / daily heatmap | `v_summary_activity_monthly` / `v_summary_heatmap_daily` (aggregate `Actions`) |
+| `TEAM_GOAL_MONTHLY` | CEO targets tab (`summary_targets.team` per month) |
+
+**Join key trap (same as everywhere):** dashboard rows key agents by **nickname**; real
+rows key by **`sale_id`/`code`** — join `sale_id → employees.code → employees.nickname` at
+wiring. **Stubbed clock:** `DASH_MONTH="2026-07"`, `DASH_DAY=18` drive the pace projection
+and KPI weekly-focus — swap for a real clock. The old real-data dashboard (live `getCrm`/
+`getListings`/`v_sale_status` cards) is **superseded**; those live numbers can feed the
+snapshot cards at integration.
 
 ---
 
