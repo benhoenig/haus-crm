@@ -1,59 +1,31 @@
 import { Topbar } from "@/components/Topbar";
-import { Card, CardHeader, CardContent } from "@/components/ui/Card";
-import {
-  Skeleton,
-  SkeletonStat,
-  SkeletonTable,
-  SkeletonBoard,
-} from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 
+// Loading skeleton for the analytics dashboard (/) — mirrors the new HAUS layout:
+// sub-tab bar → range picker → hero → two-col → wide blocks.
 export default function DashboardLoading() {
   return (
     <>
-      <Topbar title="แดชบอร์ด" subtitle="กำลังโหลด…" />
-      <div className="p-6 space-y-6">
-        {/* KPI row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonStat key={i} />
+      <Topbar title="แดชบอร์ด" subtitle="กำลังโหลด…" actions={false} />
+      <div style={{ background: "#f8f8f8" }}>
+        {/* sub-tab bar */}
+        <div className="flex gap-4 px-4 lg:px-6 h-11 items-center border-b border-border">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-4 w-16" />
           ))}
         </div>
-
-        {/* Pipeline */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-5 w-24" />
-          </CardHeader>
-          <CardContent className="p-3">
-            <SkeletonBoard />
-          </CardContent>
-        </Card>
-
-        {/* Leaderboard + recent leads */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <SkeletonTable
-            title
-            rows={6}
-            columns={[
-              { label: "เซล", w: "w-28" },
-              { label: "โซน", w: "w-16" },
-              { label: "ทรัพย์", w: "w-10", align: "right" },
-              { label: "ปิดได้", w: "w-10", align: "right" },
-              { label: "มูลค่า", w: "w-16", align: "right" },
-            ]}
-          />
-          <SkeletonTable
-            title
-            rows={8}
-            columns={[
-              { label: "ลูกค้า", w: "w-28" },
-              { label: "เกรด", w: "w-6" },
-              { label: "สถานะ", w: "w-20" },
-              { label: "งบ", w: "w-16", align: "right" },
-              { label: "ติดตามล่าสุด", w: "w-16", align: "right" },
-            ]}
-          />
+        {/* range picker */}
+        <div className="flex justify-end px-4 lg:px-6 py-3 border-b border-border">
+          <Skeleton className="h-7 w-56" />
+        </div>
+        <div className="max-w-[1240px] mx-auto p-4 lg:p-8 flex flex-col gap-7">
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+          </div>
+          <Skeleton className="h-72 w-full rounded-2xl" />
+          <Skeleton className="h-96 w-full rounded-2xl" />
         </div>
       </div>
     </>

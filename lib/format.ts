@@ -1,7 +1,7 @@
 // ------- Number / money / date formatting (HAUS conventions) -------
 // Money: ฿12.9M -> "฿12.9 ล้าน" ; rent -> "฿85,000/ด." ; always paired with .num
 
-const TH_MONTHS = [
+export const TH_MONTHS = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
   "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
 ];
