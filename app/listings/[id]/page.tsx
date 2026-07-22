@@ -9,7 +9,6 @@ import {
   Tag,
   KeyRound,
   Phone,
-  Image as ImageIcon,
   Users,
   History,
   Landmark,
@@ -23,6 +22,7 @@ import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
 import { getListing } from "@/lib/queries";
+import { listingGallery } from "@/lib/placeholderImages"; // PREVIEW ONLY — fake listing photos
 import { getProjectByName } from "@/lib/projects";
 import { getComparables, closeTypeTone, sizeSummary } from "@/lib/lastMatch";
 import { getActivitiesForListing } from "@/lib/actions";
@@ -94,18 +94,30 @@ export default async function ListingDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start">
           {/* Main column */}
           <div className="flex flex-col gap-4 min-w-0">
-            {/* Gallery — placeholder until photo storage is wired */}
+            {/* Gallery — PREVIEW ONLY fake photos until real storage is wired */}
             <Card className="overflow-hidden">
-              <div className="h-44 bg-surface-2 grid place-items-center border-b border-border">
-                <div className="flex flex-col items-center gap-2 text-text-subtle">
-                  <ImageIcon size={28} strokeWidth={1.5} />
-                  <span className="text-small">ยังไม่มีรูปภาพ</span>
-                </div>
-              </div>
-              <CardContent className="flex items-center justify-between">
-                <span className="text-small text-text-subtle">แกลเลอรีรูปภาพ</span>
-                <Pill>เร็ว ๆ นี้</Pill>
-              </CardContent>
+              {(() => {
+                const gallery = listingGallery(listing.listing_id);
+                return (
+                  <>
+                    <div className="h-64 bg-surface-2 border-b border-border">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={gallery[0]} alt="" className="size-full object-cover" />
+                    </div>
+                    <CardContent className="flex items-center gap-2">
+                      {gallery.slice(1).map((src) => (
+                        <span
+                          key={src}
+                          className="h-14 w-20 shrink-0 rounded-md overflow-hidden bg-surface-2 border border-border"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt="" className="size-full object-cover" />
+                        </span>
+                      ))}
+                    </CardContent>
+                  </>
+                );
+              })()}
             </Card>
 
             {/* Spec strip */}

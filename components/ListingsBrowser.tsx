@@ -15,6 +15,7 @@ import { formatBaht, formatRent, formatNumber, daysOnMarketLabel } from "@/lib/f
 import { listingStatusDot, potentialTone } from "@/lib/status";
 import { compareValues, orderIndex } from "@/lib/sort";
 import { cn } from "@/lib/cn";
+import { listingCoverImage } from "@/lib/placeholderImages"; // PREVIEW ONLY — fake listing photos
 
 // Stable, sensible chip order — only statuses actually present get a chip.
 const STATUS_ORDER = [
@@ -153,7 +154,7 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
                   </TD>
                   <TD>
                     <div className="flex items-center gap-2.5">
-                      <Cover />
+                      <Cover src={listingCoverImage(l.listing_id)} />
                       <div className="min-w-0">
                         <div className="font-medium truncate">{l.listing_name ?? "—"}</div>
                         <div className="text-label text-text-subtle truncate">
