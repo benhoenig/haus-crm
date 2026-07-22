@@ -9,7 +9,7 @@ export default async function AssignPage() {
 
   return (
     <>
-      <Topbar title="มอบหมาย Lead" subtitle="กระจายลีดให้ทีมขาย" actions={false} />
+      <Topbar title="Lead Database" subtitle="ลีดทั้งหมดที่รับเข้าและมอบหมาย · สำหรับตรวจสอบ อ้างอิง และทำรายงาน" actions={false} />
       <div className="p-4 lg:p-6">
         <LeadAssignment leads={leads} />
       </div>

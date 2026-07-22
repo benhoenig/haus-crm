@@ -3,6 +3,7 @@
 import { Menu } from "lucide-react";
 import { Button } from "./ui/Button";
 import { useMobileNav } from "@/components/MobileNav";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function Topbar({
   title,
@@ -39,6 +40,9 @@ export function Topbar({
         ) : (
           actions
         )}
+        {/* Always present — deliberately outside the `actions` slot so pages that pass
+            their own actions (or actions={false}) still get the bell. */}
+        <NotificationBell />
       </div>
     </header>
   );

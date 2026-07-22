@@ -4,7 +4,10 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNavProvider } from "@/components/MobileNav";
 import { RbacProvider } from "@/components/RbacProvider";
+import { NotificationsProvider } from "@/components/NotificationsProvider";
+import { NewLeadsProvider } from "@/components/NewLeadsProvider";
 import { LogActivity } from "@/components/LogActivity";
+import { LeadIntakeFab } from "@/components/LeadIntakeFab";
 
 const plexSansThai = IBM_Plex_Sans_Thai({
   subsets: ["thai", "latin"],
@@ -30,14 +33,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="th" className={`${plexSansThai.variable} ${plexMono.variable}`}>
       <body>
         <RbacProvider>
-          <MobileNavProvider>
-            <div className="grid grid-cols-1 lg:grid-cols-[228px_1fr] min-h-screen">
-              <Sidebar />
-              <main className="min-w-0 flex flex-col">{children}</main>
-            </div>
-            {/* Quick activity logger — gated to roles with the activity.log permission. */}
-            <LogActivity />
-          </MobileNavProvider>
+          {/* Inside RbacProvider — feeds/leads are scoped to the current viewer. */}
+          <NotificationsProvider>
+            <NewLeadsProvider>
+              <MobileNavProvider>
+                <div className="grid grid-cols-1 lg:grid-cols-[228px_1fr] min-h-screen">
+                  <Sidebar />
+                  <main className="min-w-0 flex flex-col">{children}</main>
+                </div>
+                {/* Quick activity logger — gated to activity.log. */}
+                <LogActivity />
+                {/* Lead intake FAB — gated to leads.create (admin/back-office). */}
+                <LeadIntakeFab />
+              </MobileNavProvider>
+            </NewLeadsProvider>
+          </NotificationsProvider>
         </RbacProvider>
       </body>
     </html>
