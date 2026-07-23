@@ -6,11 +6,6 @@ import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/ui/Avatar";
 import { AiPasteBox } from "@/components/AiPasteBox";
 import {
-  LEAD_SOURCES,
-  CONTACT_BYS,
-  GENDERS,
-  NATIONALITIES,
-  PROPERTY_TYPES,
   PURPOSES,
   SELL_REASONS,
   SAMPLE_INTEREST_LISTINGS,
@@ -20,9 +15,10 @@ import {
   nextLeadId,
   type NewLead,
   type LeadRole,
-  type LeadSource,
-  type ContactBy,
 } from "@/lib/leads";
+// LIVE vocabularies (Settings-governed) — NOT the seed constants, so removing a value in
+// Settings really removes it from these dropdowns.
+import { useMasterData } from "@/components/MasterDataProvider";
 import { type LeadDraft } from "@/lib/ai/parseLead";
 import { cn } from "@/lib/cn";
 
@@ -51,6 +47,7 @@ export function LeadForm({
   const [assigneeTouched, setAssigneeTouched] = React.useState(false);
   const [done, setDone] = React.useState<string | null>(null);
   const agents = assignableAgents();
+  const { sources, contactBys, genders, nationalities, propertyTypes } = useMasterData();
 
   const reset = React.useCallback(() => {
     setLead(emptyLead(createdBy, "buyer"));
@@ -185,8 +182,8 @@ export function LeadForm({
             <Input value={lead.lineId ?? ""} onChange={(e) => set({ lineId: e.target.value })} placeholder="@line / ชื่อไลน์" />
           </Field>
           <Field label="Marketing Channel / ช่องทาง">
-            <select value={lead.source} onChange={(e) => set({ source: e.target.value as LeadSource })} className={field}>
-              {LEAD_SOURCES.map((s) => (
+            <select value={lead.source} onChange={(e) => set({ source: e.target.value })} className={field}>
+              {sources.map((s) => (
                 <option key={s.id} value={s.id}>{s.label}</option>
               ))}
             </select>
@@ -195,8 +192,8 @@ export function LeadForm({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="ช่องทางรับ (Contact By)">
-            <select value={lead.contactBy} onChange={(e) => set({ contactBy: e.target.value as ContactBy })} className={field}>
-              {CONTACT_BYS.map((c) => (
+            <select value={lead.contactBy} onChange={(e) => set({ contactBy: e.target.value })} className={field}>
+              {contactBys.map((c) => (
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
@@ -257,12 +254,12 @@ export function LeadForm({
               <Field label="เพศ">
                 <select value={lead.gender ?? ""} onChange={(e) => set({ gender: e.target.value })} className={field}>
                   <option value="">— ไม่ระบุ —</option>
-                  {GENDERS.map((g) => (<option key={g.id} value={g.id}>{g.label}</option>))}
+                  {genders.map((g) => (<option key={g.id} value={g.id}>{g.label}</option>))}
                 </select>
               </Field>
               <Field label="สัญชาติ">
                 <select value={lead.nationality ?? ""} onChange={(e) => set({ nationality: e.target.value })} className={field}>
-                  {NATIONALITIES.map((n) => (<option key={n} value={n}>{n}</option>))}
+                  {nationalities.map((n) => (<option key={n.id} value={n.label}>{n.label}</option>))}
                 </select>
               </Field>
             </div>
@@ -288,7 +285,7 @@ export function LeadForm({
                 <Field label="ประเภททรัพย์">
                   <select value={lead.requirements.propertyType ?? ""} onChange={(e) => setReq({ propertyType: e.target.value })} className={field}>
                     <option value="">— ไม่ระบุ —</option>
-                    {PROPERTY_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                    {propertyTypes.map((t) => (<option key={t.id} value={t.label}>{t.label}</option>))}
                   </select>
                 </Field>
                 <Field label="วัตถุประสงค์">
@@ -303,7 +300,7 @@ export function LeadForm({
                 <Field label="ประเภททรัพย์">
                   <select value={lead.requirements.propertyType ?? ""} onChange={(e) => setReq({ propertyType: e.target.value })} className={field}>
                     <option value="">— ไม่ระบุ —</option>
-                    {PROPERTY_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                    {propertyTypes.map((t) => (<option key={t.id} value={t.label}>{t.label}</option>))}
                   </select>
                 </Field>
                 <Field label="เหตุผลที่ขาย/ปล่อย">

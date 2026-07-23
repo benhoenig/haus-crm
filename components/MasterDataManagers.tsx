@@ -1,49 +1,55 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
-import { ACTION_GROUPS, type AttachMode } from "@/lib/actions";
-import {
-  PROPERTY_TYPES,
-  KPI_TEMPLATES,
-  KIND_LABEL,
-  SOURCE_LABEL,
-  type KpiTemplate,
-} from "@/lib/masterdata";
-import { LEAD_SOURCES, CONTACT_BYS, GENDERS, NATIONALITIES } from "@/lib/leads";
+import { ConfirmDelete, usageWarning } from "@/components/ui/ConfirmDelete";
+import { useMasterData, type RefItem } from "@/components/MasterDataProvider";
+import { listActivities, ACTION_GROUPS, type AttachMode } from "@/lib/actions";
+import { KPI_TEMPLATES, KIND_LABEL, SOURCE_LABEL, type KpiTemplate } from "@/lib/masterdata";
 
-// ---- Generic editable label list (in-memory) --------------------------------
-function EditableList({ seed, placeholder }: { seed: string[]; placeholder: string }) {
-  const [items, setItems] = React.useState<string[]>(seed);
+// ---- Controlled vocabulary list ---------------------------------------------
+// Edits the LIVE list (MasterDataProvider) — so deleting a value here really removes it
+// from the intake form's dropdowns, while rows already storing it keep their old value
+// (display falls back to the raw value). Seed items keep their ids across label renames;
+// new custom items use id = label so raw-value fallbacks render cleanly.
+function VocabList({
+  items,
+  onChange,
+  placeholder,
+  warnFor,
+}: {
+  items: RefItem[];
+  onChange: (next: RefItem[]) => void;
+  placeholder: string;
+  warnFor?: (label: string) => React.ReactNode;
+}) {
   const [draft, setDraft] = React.useState("");
 
   const add = () => {
     const v = draft.trim();
-    if (!v || items.includes(v)) return;
-    setItems((xs) => [...xs, v]);
+    if (!v || items.some((x) => x.label === v)) return;
+    onChange([...items, { id: v, label: v }]);
     setDraft("");
   };
 
   return (
     <div className="flex flex-col gap-1.5">
-      {items.map((it, i) => (
-        <div key={i} className="flex items-center gap-2">
+      {items.map((it) => (
+        <div key={it.id} className="flex items-center gap-2">
           <Input
-            value={it}
-            onChange={(e) => setItems((xs) => xs.map((x, j) => (j === i ? e.target.value : x)))}
+            value={it.label}
+            onChange={(e) => onChange(items.map((x) => (x.id === it.id ? { ...x, label: e.target.value } : x)))}
             className="flex-1"
           />
-          <button
-            onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
-            aria-label="ลบ"
-            className="size-8 grid place-items-center rounded-md text-red hover:bg-red-bg transition-colors shrink-0"
-          >
-            <Trash2 size={14} strokeWidth={1.75} />
-          </button>
+          <ConfirmDelete
+            onDelete={() => onChange(items.filter((x) => x.id !== it.id))}
+            confirmLabel={`ลบ “${it.label}”?`}
+            warning={warnFor?.(it.label)}
+          />
         </div>
       ))}
       <div className="flex items-center gap-2 pt-1">
@@ -66,17 +72,35 @@ function EditableList({ seed, placeholder }: { seed: string[]; placeholder: stri
   );
 }
 
+// Uncontrolled variant for lists that are NOT provider-backed yet (action types).
+function EditableList({
+  seed,
+  placeholder,
+  warnFor,
+}: {
+  seed: string[];
+  placeholder: string;
+  warnFor?: (label: string) => React.ReactNode;
+}) {
+  const [items, setItems] = React.useState<RefItem[]>(() => seed.map((s) => ({ id: s, label: s })));
+  return <VocabList items={items} onChange={setItems} placeholder={placeholder} warnFor={warnFor} />;
+}
+
 // ---- Titled reference-list card (one controlled vocabulary) -----------------
 function RefListCard({
   title,
   note,
-  seed,
+  items,
+  onChange,
   placeholder,
+  warnFor,
 }: {
   title: string;
   note?: string;
-  seed: string[];
+  items: RefItem[];
+  onChange: (next: RefItem[]) => void;
   placeholder: string;
+  warnFor?: (label: string) => React.ReactNode;
 }) {
   return (
     <Card>
@@ -85,34 +109,47 @@ function RefListCard({
         {note && <span className="text-label text-text-subtle">· {note}</span>}
       </div>
       <CardContent>
-        <EditableList seed={seed} placeholder={placeholder} />
+        <VocabList items={items} onChange={onChange} placeholder={placeholder} warnFor={warnFor} />
       </CardContent>
     </Card>
   );
 }
 
 // ---- Property types ---------------------------------------------------------
-export function PropertyTypesManager() {
+// Live list (provider) — the intake form's ประเภททรัพย์ selects read the same list.
+// `usage` = live count of listings per property type (from v_main_listing, computed
+// server-side on /settings) so the delete confirm states the real impact.
+export function PropertyTypesManager({ usage }: { usage?: Record<string, number> }) {
+  const { propertyTypes, setPropertyTypes } = useMasterData();
   return (
     <Card>
       <CardContent>
-        <EditableList seed={PROPERTY_TYPES} placeholder="เพิ่มประเภททรัพย์…" />
+        <VocabList
+          items={propertyTypes}
+          onChange={setPropertyTypes}
+          placeholder="เพิ่มประเภททรัพย์…"
+          warnFor={(label) => usageWarning(usage ? (usage[label] ?? 0) : null, "ทรัพย์")}
+        />
       </CardContent>
     </Card>
   );
 }
 
 // ---- Lead reference fields (Marketing Channel / Contact By / Gender / Nationality) ----
-// The controlled vocabularies the lead-intake form uses. Design-first: these seed from the
-// hardcoded enums in lib/leads.ts and edit label-only in memory. Wiring: promote to governed
-// tables (id + label) so the intake form + reports read the same source (see DATA_MODEL).
+// Live lists (provider) — the intake form (LeadForm) reads the same lists, so removing a
+// channel here immediately removes it from the form. main_6_buyer_crm has no matching
+// columns yet → usage isn't countable; the confirm warns to check manually (wire the real
+// count once the columns land).
 export function LeadReferenceManager() {
+  const { sources, setSources, contactBys, setContactBys, genders, setGenders, nationalities, setNationalities } =
+    useMasterData();
+  const unknownLeadUsage = () => usageWarning(null, "ลีด");
   return (
     <div className="flex flex-col gap-4">
-      <RefListCard title="Marketing Channel" note="ช่องทางที่ลีดเข้ามา" seed={LEAD_SOURCES.map((s) => s.label)} placeholder="เพิ่มช่องทาง…" />
-      <RefListCard title="Contact By" note="วิธี/กล่องที่ติดต่อเข้ามา" seed={CONTACT_BYS.map((s) => s.label)} placeholder="เพิ่มวิธีติดต่อ…" />
-      <RefListCard title="เพศ" seed={GENDERS.map((g) => g.label)} placeholder="เพิ่ม…" />
-      <RefListCard title="สัญชาติ" seed={NATIONALITIES} placeholder="เพิ่มสัญชาติ…" />
+      <RefListCard title="Marketing Channel" note="ช่องทางที่ลีดเข้ามา" items={sources} onChange={setSources} placeholder="เพิ่มช่องทาง…" warnFor={unknownLeadUsage} />
+      <RefListCard title="Contact By" note="วิธี/กล่องที่ติดต่อเข้ามา" items={contactBys} onChange={setContactBys} placeholder="เพิ่มวิธีติดต่อ…" warnFor={unknownLeadUsage} />
+      <RefListCard title="เพศ" items={genders} onChange={setGenders} placeholder="เพิ่ม…" warnFor={unknownLeadUsage} />
+      <RefListCard title="สัญชาติ" items={nationalities} onChange={setNationalities} placeholder="เพิ่มสัญชาติ…" warnFor={unknownLeadUsage} />
     </div>
   );
 }
@@ -126,6 +163,9 @@ const ATTACH_LABEL: Record<AttachMode, { label: string; tone: "violet" | "accent
 };
 
 export function ActionTypesManager() {
+  // Impact = how many logged activities use each action type (sample log; wire to the real
+  // activities table count). Not provider-backed yet — local edit only.
+  const usedBy = (name: string) => listActivities().filter((a) => a.action === name).length;
   return (
     <div className="flex flex-col gap-4">
       {ACTION_GROUPS.map((g) => (
@@ -135,7 +175,7 @@ export function ActionTypesManager() {
             <Pill tone={ATTACH_LABEL[g.attach].tone}>{ATTACH_LABEL[g.attach].label}</Pill>
           </div>
           <CardContent>
-            <EditableList seed={g.items} placeholder="เพิ่มกิจกรรม…" />
+            <EditableList seed={g.items} placeholder="เพิ่มกิจกรรม…" warnFor={(it) => usageWarning(usedBy(it), "กิจกรรมที่บันทึกไว้")} />
           </CardContent>
         </Card>
       ))}
@@ -183,13 +223,11 @@ export function KpiTemplatesManager() {
               className="w-24 num text-right"
               inputMode="numeric"
             />
-            <button
-              onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
-              aria-label="ลบ"
-              className="size-8 grid place-items-center rounded-md text-red hover:bg-red-bg transition-colors shrink-0"
-            >
-              <Trash2 size={14} strokeWidth={1.75} />
-            </button>
+            <ConfirmDelete
+              onDelete={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
+              confirmLabel={`ลบ “${r.label}”?`}
+              warning="เป้าหมายที่ตั้งจากเทมเพลตนี้ไว้แล้วจะไม่ถูกลบ แต่หัวหน้าจะตั้งเป้าจากเทมเพลตนี้ใหม่ไม่ได้อีก"
+            />
           </div>
         ))}
         <div className="pt-1">

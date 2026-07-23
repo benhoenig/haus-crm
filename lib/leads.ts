@@ -14,8 +14,10 @@ export const INTAKE_TODAY = "2026-07-20";
 
 // ── Marketing Channel (where the lead came from) — matches the real "Lead Submission" form's
 //    Marketing Channel column. (The sheet also has a separate "Contact By" field — see docs.)
-export type LeadSource =
-  | "ddproperty" | "livinginsider" | "facebook" | "line" | "offline" | "website" | "walkin" | "referral" | "other";
+// NOTE: these lists are SEEDS — the live, editable copies live in MasterDataProvider
+// (Settings ▸ ช่องทาง & ฟิลด์ Lead edits them; the intake form reads them). Hence the id
+// types are plain strings, not unions: the vocabulary is data, not a compile-time enum.
+export type LeadSource = string;
 export const LEAD_SOURCES: { id: LeadSource; label: string }[] = [
   { id: "ddproperty", label: "DDproperty" },
   { id: "livinginsider", label: "Livinginsider" },
@@ -33,7 +35,7 @@ export function sourceLabel(id: string | null | undefined): string {
 
 // ── Contact By — the inbox/method the lead arrived through (separate from Marketing
 //    Channel = where it came from). Matches the sheet's "Contact By" column. ────────
-export type ContactBy = "line_oa" | "call" | "dd_inbox" | "fb_inbox" | "walkin" | "other";
+export type ContactBy = string; // seed ids below; live list in MasterDataProvider
 export const CONTACT_BYS: { id: ContactBy; label: string }[] = [
   { id: "line_oa", label: "LINE OA" },
   { id: "call", label: "Call / โทร" },
@@ -57,7 +59,9 @@ export type LeadRole = "buyer" | "owner";
 
 // ── controlled vocabularies (single source of truth; also fed to the AI schema) ──
 export const LEAD_POTENTIALS = ["A", "B", "C", "New Lead"];
-export const PROPERTY_TYPES = ["คอนโด", "บ้านเดี่ยว", "ทาวน์เฮาส์", "ที่ดิน", "อาคารพาณิชย์"];
+// ONE canonical property-type list (lib/masterdata) — previously this file carried a
+// divergent 5-item copy; the intake form + AI parser now share the governed list.
+export { PROPERTY_TYPES } from "@/lib/masterdata";
 export const BEDROOMS = ["Studio", "1", "2", "3", "4+"];
 export const PURPOSES = [
   { id: "own", label: "ซื้ออยู่เอง" },
