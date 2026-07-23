@@ -1,19 +1,28 @@
+import { LayoutDashboard } from "lucide-react";
 import { Topbar } from "@/components/Topbar";
-import { Dashboard } from "@/components/dashboard/Dashboard";
-import { formatThaiDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-// Analytics dashboard — ported from the HAUS V2 sales dashboard (summary_* model).
-// Team overview + per-agent profiles, driven by a month-range picker. Design-first:
-// sample data in lib/dashboard.ts whose shapes mirror the eventual Supabase rollup —
-// see DATA_MODEL.md → "Dashboard (analytics)". Real snapshot numbers (active leads /
-// listings, per-agent v_sale_status) can be wired into the snapshot cards at integration.
+// TEMPORARY: the analytics dashboard (components/dashboard/Dashboard, ported from the
+// HAUS V2 sales dashboard) is hidden behind this coming-soon placeholder while it's
+// being reworked. To restore: render <Dashboard /> here again (see git history of this
+// file) — components/dashboard/* and lib/dashboard.ts are untouched.
 export default function DashboardPage() {
   return (
     <>
-      <Topbar title="แดชบอร์ด" subtitle={`ภาพรวมทีมและรายบุคคล · ${formatThaiDate(new Date())}`} actions={false} />
-      <Dashboard />
+      <Topbar title="แดชบอร์ด" subtitle="ภาพรวมทีมและรายบุคคล" actions={false} />
+      <div className="flex-1 grid place-items-center p-6">
+        <div className="flex flex-col items-center gap-3 text-center max-w-sm">
+          <div className="size-14 grid place-items-center rounded-2xl bg-surface-2 border border-border">
+            <LayoutDashboard size={26} strokeWidth={1.75} className="text-text-subtle" />
+          </div>
+          <div className="text-h2">เร็วๆ นี้</div>
+          <p className="text-body text-text-subtle">
+            แดชบอร์ดภาพรวมกำลังอยู่ระหว่างการปรับปรุง — ระหว่างนี้ดูข้อมูลได้จากหน้า ลีดของฉัน,
+            ฐานข้อมูลลีด และ ผลงาน
+          </p>
+        </div>
+      </div>
     </>
   );
 }
