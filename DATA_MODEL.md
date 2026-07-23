@@ -79,6 +79,21 @@ populated FK). Assigning real IDs + name-normalization is an import task — see
 - `AC` Zone → `Ratchaphruek (ต้น)`(60) · `Salaya`(1)
 - `AA` → ในโครงการ(56) · นอกโครงการ(2)
 
+**Company listings + owner privacy (new, design-first 2026-07-22).** A second listings
+surface — **`/company-listings`** (`components/CompanyListings.tsx`, under คลังข้อมูล, gated
+`listings.view`) — shows **every** listing with its **managing sales agent** (avatar +
+contact) and a per-agent inventory count strip, so any sale can find Co-Agent opportunities.
+It deliberately shows **NO owner contact**. The managing agent = source `AZ Created By` /
+per-agent listing sheet (HR Sheet col U); the live view doesn't expose it and the source is
+still single-agent (all Stone), so `lib/listings.ts` **seeds** a deterministic agent per
+listing purely for the demo — **delete at wiring** and read the real column.
+**Owner contact is now PRIVATE** on the listing detail (`components/ListingOwnerCard.tsx`):
+visible only to `contacts.view_all` holders (Listing Support / leadership — owners *are*
+contacts) **or** the listing's managing agent; everyone else sees the managing agent's
+contact instead (Co-Agent card). Wire this to a real owner-contact RLS + the real
+creating-agent, and prefer a **view without owner PII** for `/company-listings` so owner
+contact never reaches the client on that surface.
+
 ---
 
 ## 2. `Buyer Focus` — leads / pipeline  (cols A–X, 24 fields)  ✅ built
@@ -319,10 +334,25 @@ convenience, not enforcement.
 | people manage / view_sensitive | ✓ / ✓ | – | – | – | – | – | ✓ / ✓ |
 | masterdata.govern · roles.manage | ✓ | – | – | – | – | – | – |
 | reference.manage | ✓ | – | **✓** | – | – | – | – |
+| teams.manage | ✓ | – | – | – | – | – | – |
 
-\*Seeded but **unstaffed** (0 users = 0 real access). They document the org's stated future
-(lead dispatch, player-coach transition, payroll) and are testable via view-as. CEO deletes
-any that never get used.
+\***Sales Leader is now staffed** — Pup & Game are `[agent, sales_leader]`, the two seeded
+team leads (see *Sales teams* below). Admin & HR remain **unstaffed** (0 users = 0 real
+access), documenting the org's stated future (lead dispatch, payroll); testable via view-as.
+CEO deletes any that never get used.
+
+**Sales teams (new, design-first 2026-07-22).** `lib/teams.ts` adds a `Team { id, name,
+leaderId, memberIds, revenueGoal }` held in the shared org store (`RbacProvider`, alongside
+roles/users) so Settings edits live-update every surface. **Settings ▸ ทีม**
+(`components/TeamsManager.tsx`, gated **`teams.manage`** — CEO only) creates teams, sets a
+leader + monthly revenue goal, and assigns members (**one team per person** — adding pulls
+them off any other team; removing a leader reassigns leadership). Seeds = 2 teams
+(A: Pup·Q·Mhow, B: Game·Golf·Stone). **Scoping** via `visibleMemberIds(teams, viewerId,
+isOrgWide)`: org-wide viewers (CEO/HR) see everyone; a team leader who isn't org-wide sees
+only their team — already applied to the **`/team` roster** (`TeamTable`, team column + scope
+banner). **Wire:** `teams` table + membership (`employees.team_id` or a `team_members` join);
+apply the same `visibleMemberIds()` scope to the **dashboard leaderboard**, **/performance**,
+and the **Lead Database**, and feed `revenueGoal` into team-level targets.
 
 **Rules encoded in the matrix:**
 - `view_all` beats `view_own` — grant only one per surface.
