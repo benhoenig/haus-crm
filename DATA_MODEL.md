@@ -301,7 +301,9 @@ in-memory (not persisted). Wire later = tables `roles`, `role_permissions`, `use
 **Permission catalog** (the implemented gates — see `PERMISSION_GROUPS` in `lib/rbac.ts`):
 Leads (view all/own, assign, edit) · Contacts (view all, view own/assigned, manage) ·
 Inventory (view/edit listings, marketing, edit projects, add Last Match) · **Activity
-(log — the FAB)** · Targets/KPI (view team/own, set targets, add stretch) · Financials
+(log — the FAB)** · Website (**`website.manage`** = customer-facing portal content —
+menu/banners; `/website` is a coming-soon placeholder until the portal is designed) ·
+Targets/KPI (view team/own, set targets, add stretch) · Financials
 (**`financials.view_comp`** = team compensation, manage payroll) · People (manage
 employees, view sensitive PII) · Master data (govern zones & vocabularies) · System
 (manage roles & permissions).
@@ -328,6 +330,7 @@ convenience, not enforcement.
 | listings.marketing / projects.edit | ✓ / ✓ | – | ✓ / ✓ | ✓ / – | – | – | – |
 | lastmatch.add | ✓ | ✓ | ✓ | – | ✓ | – | – |
 | activity.log | ✓ | ✓ | ✓ | ✓ | ✓ | – | – |
+| website.manage | ✓ | – | – | **✓** | – | – | – |
 | performance own / team | ✓ / ✓ | ✓ / ✓ | ✓ / – | ✓ / – | ✓ / ✓ | – / – | – / ✓ |
 | targets set / stretch | ✓ / ✓ | – / ✓ | – / ✓ | – / ✓ | ✓ / ✓ | – | – |
 | financials view_comp / payroll | ✓ / ✓ | – | – | – | – | – | ✓ / ✓ |

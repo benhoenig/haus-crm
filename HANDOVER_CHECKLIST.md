@@ -171,6 +171,7 @@ Last updated: 2026-07-15 · Status: **design phase (DB not wired)**
 
 ### ⛔ Still not designed
 - [ ] Decide back-office vs. CRM for remaining unreviewed tabs (New Lead, Spending, Comments, Dashboards)
+- [ ] **เว็บพอร์ทัล (`/website`)** — Marketing's manager for the customer-facing portal website (menu/banners/content). Coming-soon placeholder only; **blocked on the portal itself being designed**. Nav + `website.manage` permission (Marketing + CEO) are already wired — design the page once the portal exists, then enforce the gate server-side like every other permission.
 
 ### Cross-cutting
 - [ ] Money formatting (฿X ล้าน / ฿X,XXX / ฿X/ด.) correct across all views

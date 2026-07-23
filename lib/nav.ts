@@ -11,6 +11,7 @@ import {
   Landmark,
   Handshake,
   Activity,
+  Globe,
   Settings,
 } from "lucide-react";
 
@@ -70,6 +71,12 @@ export const NAV: NavGroup[] = [
       { href: "/projects", label: "โครงการ", icon: Landmark, perm: "listings.view" },
       { href: "/last-match", label: "Last Match", icon: Handshake, perm: ["listings.view", "lastmatch.add"] },
     ],
+  },
+  {
+    // Marketing-only (website.manage): manage the customer-facing portal website's
+    // menu/content. Coming-soon placeholder until the portal itself is designed.
+    title: "การตลาด",
+    items: [{ href: "/website", label: "เว็บพอร์ทัล", icon: Globe, perm: "website.manage" }],
   },
   {
     // Leadership-only: gated to performance.view_team (agents don't have it).

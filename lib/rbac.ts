@@ -60,6 +60,20 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     perms: [{ key: "activity.log", label: "บันทึกกิจกรรม (ปุ่มลอย)", hint: "สำหรับคนที่ทำงานขาย" }],
   },
   {
+    key: "website",
+    label: "เว็บพอร์ทัล",
+    perms: [
+      // Manages the CUSTOMER-FACING portal website (menu, banners, featured content) — a
+      // separate gate from listings.marketing (posting listings to portals), which Listing
+      // Support also holds. Page is a coming-soon placeholder until the portal is designed.
+      {
+        key: "website.manage",
+        label: "จัดการเนื้อหาเว็บหน้าบ้าน",
+        hint: "เมนู / แบนเนอร์ / เนื้อหาบนเว็บพอร์ทัลลูกค้า — Marketing",
+      },
+    ],
+  },
+  {
     key: "performance",
     label: "เป้าหมาย / KPI",
     perms: [
@@ -230,6 +244,10 @@ export const SEED_ROLES: Role[] = [
     permissions: [
       "listings.view",
       "listings.marketing",
+      // Owns the customer-facing portal website's menu/content (/website — placeholder
+      // until the portal is designed). NOT granted to Listing Support: their portal work
+      // is posting listings (listings.marketing), not the website itself.
+      "website.manage",
       "activity.log",
       "performance.view_own",
       "targets.stretch",
