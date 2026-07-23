@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2, Lock, ShieldCheck, Check, Users } from "lucide-react";
+import { Plus, Lock, ShieldCheck, Check, Users } from "lucide-react";
 import { PERMISSION_GROUPS, roleUserCount } from "@/lib/rbac";
 import { useRbac } from "@/components/RbacProvider";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { ConfirmDelete } from "@/components/ui/ConfirmDelete";
 import { cn } from "@/lib/cn";
 
 export function RolesManager() {
@@ -133,13 +134,16 @@ export function RolesManager() {
               </p>
             </div>
             {!locked && (
-              <button
-                onClick={() => deleteRole(selected.id)}
-                aria-label="ลบบทบาท"
-                className="size-8 grid place-items-center rounded-md text-red hover:bg-red-bg transition-colors shrink-0"
-              >
-                <Trash2 size={15} strokeWidth={1.75} />
-              </button>
+              <ConfirmDelete
+                onDelete={() => deleteRole(selected.id)}
+                label="ลบบทบาท"
+                confirmLabel={`ลบ “${selected.name}”?`}
+                warning={
+                  roleUserCount(selected.id, users) > 0
+                    ? `ผู้ใช้ ${roleUserCount(selected.id, users)} คนถือบทบาทนี้อยู่ — จะถูกถอดออกและเสียสิทธิ์ทั้งหมดของบทบาทนี้`
+                    : "ไม่มีผู้ใช้ถือบทบาทนี้ — ลบได้อย่างปลอดภัย"
+                }
+              />
             )}
           </div>
           {locked && (
