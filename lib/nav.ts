@@ -6,6 +6,7 @@ import {
   UserCog,
   Share2,
   Building2,
+  Warehouse,
   Contact,
   Landmark,
   Handshake,
@@ -62,6 +63,9 @@ export const NAV: NavGroup[] = [
   {
     title: "คลังข้อมูล",
     items: [
+      // Company-wide inventory — every sale sees who manages what (for Co-Agent), but never
+      // the owner contact (that stays gated on the listing detail). Own component, not /listings.
+      { href: "/company-listings", label: "ทรัพย์ทั้งบริษัท", icon: Warehouse, perm: "listings.view" },
       { href: "/contacts", label: "ผู้ติดต่อ", icon: Contact, perm: ["contacts.view_all", "contacts.view_own"] },
       { href: "/projects", label: "โครงการ", icon: Landmark, perm: "listings.view" },
       { href: "/last-match", label: "Last Match", icon: Handshake, perm: ["listings.view", "lastmatch.add"] },
@@ -81,7 +85,7 @@ export const NAV: NavGroup[] = [
     admin: true,
     bottom: true,
     items: [
-      { href: "/settings", label: "ตั้งค่า", icon: Settings, perm: ["roles.manage", "masterdata.govern", "reference.manage"] },
+      { href: "/settings", label: "ตั้งค่า", icon: Settings, perm: ["roles.manage", "masterdata.govern", "reference.manage", "teams.manage"] },
     ],
   },
 ];

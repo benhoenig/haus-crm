@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Pencil, Plus } from "lucide-react";
+import { Search, Pencil, Plus, Crown, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -18,14 +18,21 @@ import {
   employeeZoneNames,
   DEPARTMENT_LABEL,
 } from "@/lib/team";
+import { teamOf, visibleMemberIds } from "@/lib/teams";
 
 export function TeamTable() {
   const router = useRouter();
-  const { roles, users, can } = useRbac();
+  const { roles, users, teams, currentUser, can } = useRbac();
   const [q, setQ] = React.useState("");
 
   const showMoney = can("financials.view_comp");
   const canManage = can("people.manage");
+
+  // Team scoping: org-wide viewers (CEO/HR) see everyone; a team leader who isn't org-wide
+  // sees only their own team. null = no scope (see all).
+  const isOrgWide = can("roles.manage") || can("people.manage");
+  const scopeIds = visibleMemberIds(teams, currentUser.id, isOrgWide);
+  const scopedTeam = scopeIds ? teams.find((t) => t.leaderId === currentUser.id) : undefined;
 
   const roleNames = (uid: string) => {
     const u = users.find((x) => x.id === uid);
@@ -34,13 +41,15 @@ export function TeamTable() {
   };
 
   const query = q.trim().toLowerCase();
-  const list = listEmployees().filter(
-    (e) =>
-      !query ||
-      e.nickname.toLowerCase().includes(query) ||
-      employeeFullName(e).toLowerCase().includes(query) ||
-      e.code.toLowerCase().includes(query)
-  );
+  const list = listEmployees()
+    .filter((e) => !scopeIds || scopeIds.has(e.id))
+    .filter(
+      (e) =>
+        !query ||
+        e.nickname.toLowerCase().includes(query) ||
+        employeeFullName(e).toLowerCase().includes(query) ||
+        e.code.toLowerCase().includes(query)
+    );
 
   return (
     <Card>
@@ -66,13 +75,21 @@ export function TeamTable() {
         )}
       </div>
 
+      {scopedTeam && (
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-2/60 text-small text-text-muted">
+          <Users size={14} strokeWidth={1.75} className="text-accent" />
+          แสดงเฉพาะ<span className="font-medium text-text">{scopedTeam.name}</span>ที่คุณเป็นหัวหน้า
+        </div>
+      )}
+
       <CardContent className="p-0">
-        <Table className="min-w-[820px]">
+        <Table className="min-w-[900px]">
           <THead>
             <TR>
               <TH>พนักงาน</TH>
               <TH>บทบาท</TH>
               <TH>ตำแหน่ง</TH>
+              <TH>ทีม</TH>
               <TH>โซน</TH>
               <TH>สถานะ</TH>
               <TH className="text-right">กิจกรรมเดือนนี้</TH>
@@ -118,6 +135,19 @@ export function TeamTable() {
                   <TD className="text-small">
                     <div className="text-text">{e.position || "—"}</div>
                     <div className="text-label text-text-subtle">{DEPARTMENT_LABEL[e.department]}</div>
+                  </TD>
+                  <TD className="text-small">
+                    {(() => {
+                      const t = teamOf(teams, e.id);
+                      if (!t) return <span className="text-text-subtle">—</span>;
+                      const isLeader = t.leaderId === e.id;
+                      return (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                          {isLeader && <Crown size={12} strokeWidth={2} className="text-amber shrink-0" />}
+                          <span className={isLeader ? "text-text font-medium" : "text-text-muted"}>{t.name}</span>
+                        </span>
+                      );
+                    })()}
                   </TD>
                   <TD className="text-small text-text-muted">
                     {zoneNames.length ? zoneNames.join(", ") : "—"}

@@ -8,6 +8,7 @@ import {
   type Role,
   type OrgUser,
 } from "@/lib/rbac";
+import { SEED_TEAMS, type Team } from "@/lib/teams";
 
 // Shared RBAC store — single source for BOTH the Settings role editor and app-wide
 // gating, so editing a role's permissions live-changes what that persona sees. Plus a
@@ -20,6 +21,8 @@ interface RbacValue {
   setRoles: React.Dispatch<React.SetStateAction<Role[]>>;
   users: OrgUser[];
   setUsers: React.Dispatch<React.SetStateAction<OrgUser[]>>;
+  teams: Team[];
+  setTeams: React.Dispatch<React.SetStateAction<Team[]>>;
   viewerId: string;
   setViewerId: (id: string) => void;
   currentUser: OrgUser;
@@ -37,6 +40,9 @@ export function RbacProvider({ children }: { children: React.ReactNode }) {
   );
   const [users, setUsers] = React.useState<OrgUser[]>(() =>
     SEED_USERS.map((u) => ({ ...u, roleIds: [...u.roleIds] }))
+  );
+  const [teams, setTeams] = React.useState<Team[]>(() =>
+    SEED_TEAMS.map((t) => ({ ...t, memberIds: [...t.memberIds] }))
   );
   // Default to the CEO (Stone) so the app renders full before the client hydrates a saved choice.
   const [viewerId, setViewerIdState] = React.useState<string>("u_stone");
@@ -81,6 +87,8 @@ export function RbacProvider({ children }: { children: React.ReactNode }) {
     setRoles,
     users,
     setUsers,
+    teams,
+    setTeams,
     viewerId,
     setViewerId,
     currentUser,

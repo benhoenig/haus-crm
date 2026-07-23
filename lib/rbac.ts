@@ -93,6 +93,11 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: "ดูข้อมูลอ่อนไหว (บัตร ปชช./บัญชี/สลิป)",
         hint: "PII และเอกสารพนักงาน — CEO/HR เท่านั้น",
       },
+      {
+        key: "teams.manage",
+        label: "จัดการทีมขาย",
+        hint: "สร้างทีม กำหนดหัวหน้า และมอบหมายเซลเข้าทีม",
+      },
     ],
   },
   {
@@ -148,10 +153,10 @@ export interface OrgUser {
 }
 
 // Roles reflect the real org (HR Sheet → Position / 2nd Position): CEO, Agent (Sales),
-// Listing Support, Marketing are staffed today. Sales Leader / Admin / HR are seeded but
-// UNSTAFFED (0 users = 0 real access) — they document the org's stated future (lead
-// dispatch, player-coach transition, payroll) and are testable via view-as. CEO can
-// delete any that never get used.
+// Listing Support, Marketing are staffed today. Sales Leader is now staffed (Pup, Game) as
+// the two seeded team leads (see lib/teams.ts) to demonstrate team scoping. Admin / HR remain
+// seeded but UNSTAFFED (0 users = 0 real access) — they document the org's stated future
+// (lead dispatch, payroll) and are testable via view-as. CEO can delete any that go unused.
 //
 // This matrix is the **intended access policy** and the spec the wiring phase must
 // reproduce in RLS — the client-side `can()` is convenience, not enforcement.
@@ -283,8 +288,11 @@ export const SEED_ROLES: Role[] = [
 // CEO who also carries a Sales role. Login ids mirror lib/team.ts Employee.id.
 export const SEED_USERS: OrgUser[] = [
   { id: "u_stone", name: "Stone", roleIds: ["ceo", "agent"] },
-  { id: "u_pup", name: "Pup", roleIds: ["agent"] },
-  { id: "u_game", name: "Game", roleIds: ["agent"] },
+  // Pup & Game lead the two seeded sales teams (lib/teams.ts) — hence [agent, sales_leader],
+  // the player-coach shape. Design-first demo: it activates the Sales Leader role + shows team
+  // scoping (a leader sees only their team). The real org may designate different leads.
+  { id: "u_pup", name: "Pup", roleIds: ["agent", "sales_leader"] },
+  { id: "u_game", name: "Game", roleIds: ["agent", "sales_leader"] },
   { id: "u_q", name: "Q", roleIds: ["agent"] },
   { id: "u_mhow", name: "Mhow", roleIds: ["agent"] },
   { id: "u_golf", name: "Golf", roleIds: ["agent"] },

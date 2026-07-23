@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ShieldCheck, Map, Home, ListChecks, Activity, Target, Info, Lock } from "lucide-react";
+import { ShieldCheck, Users, Map, Home, ListChecks, Activity, Target, Info, Lock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { type Zone } from "@/lib/zones";
 import { RolesManager } from "@/components/RolesManager";
+import { TeamsManager } from "@/components/TeamsManager";
 import { ZonesAdmin } from "@/components/ZonesAdmin";
 import {
   PropertyTypesManager,
@@ -16,7 +17,7 @@ import { useRbac } from "@/components/RbacProvider";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-type SectionKey = "roles" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi";
+type SectionKey = "roles" | "teams" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi";
 // Each section is gated to a permission — the sub-nav only shows what the viewer can govern,
 // so Listing Support (reference.manage) sees the reference lists but not roles/zones/KPI.
 type Section = { key: SectionKey; label: string; icon: LucideIcon; perm: string };
@@ -24,6 +25,7 @@ type Section = { key: SectionKey; label: string; icon: LucideIcon; perm: string 
 // Single settings hub (Shelter-style): add a section here and it appears in the sub-nav.
 const SECTIONS: Section[] = [
   { key: "roles", label: "บทบาท & สิทธิ์", icon: ShieldCheck, perm: "roles.manage" },
+  { key: "teams", label: "ทีมขาย", icon: Users, perm: "teams.manage" },
   { key: "zones", label: "โซน", icon: Map, perm: "masterdata.govern" },
   { key: "property_types", label: "ประเภททรัพย์", icon: Home, perm: "reference.manage" },
   { key: "lead_fields", label: "ช่องทาง & ฟิลด์ Lead", icon: ListChecks, perm: "reference.manage" },
@@ -31,7 +33,14 @@ const SECTIONS: Section[] = [
   { key: "kpi", label: "เป้าหมาย KPI", icon: Target, perm: "masterdata.govern" },
 ];
 
-export function SettingsView({ zones }: { zones: Zone[] }) {
+export function SettingsView({
+  zones,
+  propertyTypeUsage,
+}: {
+  zones: Zone[];
+  /** Listings per property type — impact line for the delete confirm. */
+  propertyTypeUsage?: Record<string, number>;
+}) {
   const { can } = useRbac();
   const visible = SECTIONS.filter((s) => can(s.perm));
   const [section, setSection] = React.useState<SectionKey>(() => visible[0]?.key ?? "roles");
@@ -80,11 +89,17 @@ export function SettingsView({ zones }: { zones: Zone[] }) {
       {/* Section content */}
       <div className="flex flex-col gap-4 min-w-0">
         {section === "roles" && <RolesSection />}
+        {section === "teams" && (
+          <>
+            <SectionHeader title="ทีมขาย" desc="สร้างทีม กำหนดหัวหน้า เป้ารายได้ และมอบหมายเซลเข้าทีม · จัดการโดย CEO" />
+            <TeamsManager />
+          </>
+        )}
         {section === "zones" && <ZonesSection zones={zones} />}
         {section === "property_types" && (
           <>
             <SectionHeader title="ประเภททรัพย์" desc="รายการประเภททรัพย์กลาง · จัดการโดย CEO / Listing Support" />
-            <PropertyTypesManager />
+            <PropertyTypesManager usage={propertyTypeUsage} />
           </>
         )}
         {section === "lead_fields" && (
