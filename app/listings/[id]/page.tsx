@@ -8,7 +8,6 @@ import {
   MapPin,
   Tag,
   KeyRound,
-  Phone,
   Users,
   History,
   Landmark,
@@ -20,7 +19,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
-import { Avatar } from "@/components/ui/Avatar";
+import { ListingOwnerCard } from "@/components/ListingOwnerCard";
 import { getListing } from "@/lib/queries";
 import { listingGallery } from "@/lib/placeholderImages"; // PREVIEW ONLY — fake listing photos
 import { getProjectByName } from "@/lib/projects";
@@ -337,31 +336,13 @@ export default async function ListingDetailPage({
               )}
             </Card>
 
-            {/* Owner (real data) */}
-            <Card>
-              <CardHeader>
-                <CardTitle>เจ้าของทรัพย์</CardTitle>
-              </CardHeader>
-              {listing.owner_name ? (
-                <div className="p-4 flex items-center gap-3">
-                  <Avatar name={listing.owner_name} tone="crimson" className="h-10 w-10" />
-                  <div className="min-w-0">
-                    <div className="text-body font-medium truncate">{listing.owner_name}</div>
-                    {listing.owner_phone && (
-                      <a
-                        href={`tel:${listing.owner_phone}`}
-                        className="num text-small text-text-muted hover:text-accent inline-flex items-center gap-1 transition-colors"
-                      >
-                        <Phone size={12} strokeWidth={1.75} />
-                        {listing.owner_phone}
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 text-small text-text-subtle">ไม่ระบุเจ้าของ</div>
-              )}
-            </Card>
+            {/* Owner (real data) — contact is PRIVATE: gated to contacts.view_all or the
+                managing agent; everyone else sees the managing agent's contact for Co-Agent. */}
+            <ListingOwnerCard
+              ownerName={listing.owner_name}
+              ownerPhone={listing.owner_phone}
+              listingId={listing.listing_id}
+            />
 
             {/* Marketing — placeholder */}
             <Card>
