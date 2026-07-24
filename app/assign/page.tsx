@@ -2,7 +2,7 @@ import { Topbar } from "@/components/Topbar";
 import { LeadAssignment } from "@/components/LeadAssignment";
 import { getCrm } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function AssignPage() {
   const leads = await getCrm();

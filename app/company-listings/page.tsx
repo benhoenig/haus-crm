@@ -2,7 +2,7 @@ import { Topbar } from "@/components/Topbar";
 import { CompanyListings } from "@/components/CompanyListings";
 import { getListings } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function CompanyListingsPage() {
   const listings = await getListings();

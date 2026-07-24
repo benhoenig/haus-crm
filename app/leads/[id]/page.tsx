@@ -15,7 +15,7 @@ import { formatBaht, formatThaiDate } from "@/lib/format";
 import { leadStatusDot } from "@/lib/status";
 import { stageMeta } from "@/lib/pipeline";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function LeadDetailPage({
   params,

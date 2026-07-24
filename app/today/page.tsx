@@ -3,7 +3,7 @@ import { DailyPlan } from "@/components/DailyPlan";
 import { TargetsBoard } from "@/components/TargetsBoard";
 import { currentAgent } from "@/lib/momentum";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default function TodayPage() {
   const agent = currentAgent();

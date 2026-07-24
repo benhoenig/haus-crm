@@ -29,7 +29,7 @@ import { formatBaht, formatRent, formatNumber, formatThaiDate, daysOnMarketLabel
 import { listingStatusDot, potentialTone } from "@/lib/status";
 import { cn } from "@/lib/cn";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 const DEAL_LABEL: Record<string, string> = {
   sale: "ขาย",

@@ -174,6 +174,7 @@ Last updated: 2026-07-15 · Status: **design phase (DB not wired)**
 - [ ] **เว็บพอร์ทัล (`/website`)** — Marketing's manager for the customer-facing portal website (menu/banners/content). Coming-soon placeholder only; **blocked on the portal itself being designed**. Nav + `website.manage` permission (Marketing + CEO) are already wired — design the page once the portal exists, then enforce the gate server-side like every other permission.
 
 ### Cross-cutting
+- [ ] **Pages are ISR-cached (`export const revalidate = 30`, was `force-dynamic`)** — menu navigation serves the cached page instantly; Supabase data is at most ~30s stale. At wiring, when the app starts WRITING data, revalidate the affected pages on mutation (`revalidatePath`/`revalidateTag`) so users see their own edits immediately — don't rely on the 30s window.
 - [ ] Money formatting (฿X ล้าน / ฿X,XXX / ฿X/ด.) correct across all views
 - [ ] Thai Buddhist-era dates correct everywhere
 - [ ] Numerals use the mono/tabular treatment
