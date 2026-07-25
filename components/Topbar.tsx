@@ -1,7 +1,6 @@
 "use client";
 
 import { Menu } from "lucide-react";
-import { Button } from "./ui/Button";
 import { useMobileNav } from "@/components/MobileNav";
 import { NotificationBell } from "@/components/NotificationBell";
 
@@ -12,7 +11,8 @@ export function Topbar({
 }: {
   title: string;
   subtitle?: string;
-  /** Right-side actions. Omit to render the default เพิ่มรายการ button. */
+  /** Right-side actions (e.g. an add button). Omit or pass false for none — there is no
+   *  default action; each page provides its own contextual one. The bell is always shown. */
   actions?: React.ReactNode;
 }) {
   const { setOpen } = useMobileNav();
@@ -30,13 +30,9 @@ export function Topbar({
         {subtitle && <p className="text-small text-text-muted -mt-0.5 truncate">{subtitle}</p>}
       </div>
       <div className="ml-auto flex items-center gap-2 shrink-0">
-        {actions === undefined ? (
-          <Button size="sm">+ เพิ่มรายการ</Button>
-        ) : (
-          actions
-        )}
+        {actions}
         {/* Always present — deliberately outside the `actions` slot so pages that pass
-            their own actions (or actions={false}) still get the bell. */}
+            their own actions (or none) still get the bell. */}
         <NotificationBell />
       </div>
     </header>
