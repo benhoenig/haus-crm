@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ShieldCheck, Users, Map, Home, ListChecks, Activity, Target, Info, Lock, ClipboardList, Megaphone } from "lucide-react";
+import { ShieldCheck, Users, Map, Home, ListChecks, Activity, Target, Info, Lock, ClipboardList, Megaphone, Medal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { type Zone } from "@/lib/zones";
 import { RolesManager } from "@/components/RolesManager";
@@ -15,11 +15,12 @@ import {
 } from "@/components/MasterDataManagers";
 import { ChecklistTemplatesManager } from "@/components/ChecklistTemplatesManager";
 import { CopyTemplateEditor } from "@/components/CopyTemplateEditor";
+import { SalesRankManager } from "@/components/SalesRankManager";
 import { useRbac } from "@/components/RbacProvider";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-type SectionKey = "roles" | "teams" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi" | "checklists" | "copy";
+type SectionKey = "roles" | "teams" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi" | "ranks" | "checklists" | "copy";
 // Each section is gated to a permission — the sub-nav only shows what the viewer can govern,
 // so Listing Support (reference.manage) sees the reference lists but not roles/zones/KPI.
 type Section = { key: SectionKey; label: string; icon: LucideIcon; perm: string };
@@ -35,6 +36,7 @@ const SECTIONS: Section[] = [
   { key: "lead_fields", label: "ช่องทาง & ฟิลด์ Lead", icon: ListChecks, perm: "reference.manage" },
   { key: "action_types", label: "ประเภทกิจกรรม", icon: Activity, perm: "masterdata.govern" },
   { key: "kpi", label: "เป้าหมาย KPI", icon: Target, perm: "masterdata.govern" },
+  { key: "ranks", label: "Rank เซลล์ใหม่", icon: Medal, perm: "masterdata.govern" },
 ];
 
 export function SettingsView({
@@ -159,6 +161,21 @@ export function SettingsView({
               desc="เทมเพลตเป้าหมายที่หัวหน้าใช้ตั้งเป้าให้ทีม (เชื่อมกับกิจกรรม/ไปป์ไลน์)"
             />
             <KpiTemplatesManager />
+          </>
+        )}
+        {section === "ranks" && (
+          <>
+            <SectionHeader
+              title="Rank เซลล์ใหม่ (โปรเบชั่น)"
+              desc="บันไดเลื่อนขั้นของเซลล์ใหม่ — เกณฑ์แต่ละ Rank นับจากกิจกรรม (เหมือน KPI) · จัดการโดย CEO"
+            />
+            <Note>
+              เซลล์ใหม่เลื่อน Rank <span className="text-text">อัตโนมัติ</span>เมื่อทำครบทุกเกณฑ์ของ Rank
+              ถัดไป (นับจากกิจกรรมที่บันทึกจริง — เลือกได้ว่านับสะสมรวมหรือต่อเดือน) ผ่าน Rank สุดท้าย =
+              ผ่านโปรเบชั่น ดูภาพรวมได้ที่หน้า “เซลล์ใหม่”{" "}
+              <span className="text-text">โหมดออกแบบ: การเปลี่ยนแปลงยังไม่ถูกบันทึก</span>
+            </Note>
+            <SalesRankManager />
           </>
         )}
       </div>

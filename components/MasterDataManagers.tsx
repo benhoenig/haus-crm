@@ -8,8 +8,16 @@ import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDelete, usageWarning } from "@/components/ui/ConfirmDelete";
 import { useMasterData, type RefItem } from "@/components/MasterDataProvider";
-import { listActivities, ACTION_GROUPS, type AttachMode } from "@/lib/actions";
-import { KPI_TEMPLATES, KIND_LABEL, SOURCE_LABEL, type KpiTemplate } from "@/lib/masterdata";
+import { listActivities, ACTION_GROUPS, NOTE_ACTION, type AttachMode } from "@/lib/actions";
+import {
+  KPI_TEMPLATES,
+  KIND_LABEL,
+  SOURCE_LABEL,
+  type KpiTemplate,
+  type TemplateKind,
+  type TemplateSource,
+} from "@/lib/masterdata";
+import { cn } from "@/lib/cn";
 
 // ---- Controlled vocabulary list ---------------------------------------------
 // Edits the LIVE list (MasterDataProvider) — so deleting a value here really removes it
@@ -184,6 +192,10 @@ export function ActionTypesManager() {
 }
 
 // ---- KPI target templates ---------------------------------------------------
+// Loggable actions only — a KPI on the free-note action makes no sense (same rule as
+// the probation rank editor).
+const KPI_ACTION_OPTIONS = ACTION_GROUPS.filter((g) => !g.items.includes(NOTE_ACTION));
+
 export function KpiTemplatesManager() {
   const [rows, setRows] = React.useState<KpiTemplate[]>(KPI_TEMPLATES);
 
@@ -194,13 +206,22 @@ export function KpiTemplatesManager() {
         id: `kt_new_${rs.length}`,
         label: "เป้าหมายใหม่",
         kind: "count",
-        source: "manual",
+        source: "activity",
+        activityType: "Call",
         defaultTarget: 0,
       },
     ]);
 
   const patch = (id: string, p: Partial<KpiTemplate>) =>
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)));
+
+  // Source switch keeps activityType coherent: activity gets a default action;
+  // pipeline/manual carry none.
+  const setSource = (r: KpiTemplate, source: TemplateSource) =>
+    patch(r.id, {
+      source,
+      activityType: source === "activity" ? (r.activityType ?? "Call") : undefined,
+    });
 
   return (
     <Card>
@@ -212,16 +233,50 @@ export function KpiTemplatesManager() {
               onChange={(e) => patch(r.id, { label: e.target.value })}
               className="flex-1 min-w-[140px]"
             />
-            <Pill tone="neutral">{KIND_LABEL[r.kind]}</Pill>
-            <Pill tone={r.source === "activity" ? "green" : "neutral"}>
-              {SOURCE_LABEL[r.source]}
-              {r.activityType ? ` · ${r.activityType}` : ""}
-            </Pill>
+            <Select
+              value={r.kind}
+              onChange={(e) => patch(r.id, { kind: e.target.value as TemplateKind })}
+              aria-label="ชนิดการวัด"
+              className="w-28"
+            >
+              {(Object.keys(KIND_LABEL) as TemplateKind[]).map((k) => (
+                <option key={k} value={k}>{KIND_LABEL[k]}</option>
+              ))}
+            </Select>
+            <Select
+              value={r.source}
+              onChange={(e) => setSource(r, e.target.value as TemplateSource)}
+              aria-label="แหล่งข้อมูล"
+              className="w-40"
+            >
+              {(Object.keys(SOURCE_LABEL) as TemplateSource[]).map((s) => (
+                <option key={s} value={s}>{SOURCE_LABEL[s]}</option>
+              ))}
+            </Select>
+            {/* The linked action — the metric this template counts (same vocabulary as
+                ประเภทกิจกรรม / Rank เซลล์ใหม่). Only for activity-sourced templates. */}
+            {r.source === "activity" && (
+              <Select
+                value={r.activityType ?? "Call"}
+                onChange={(e) => patch(r.id, { activityType: e.target.value })}
+                aria-label="กิจกรรมที่นับ"
+                className="w-36"
+              >
+                {KPI_ACTION_OPTIONS.map((g) => (
+                  <optgroup key={g.group} label={g.group}>
+                    {g.items.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </Select>
+            )}
             <Input
               value={String(r.defaultTarget)}
               onChange={(e) => patch(r.id, { defaultTarget: Number(e.target.value) || 0 })}
               className="w-24 num text-right"
               inputMode="numeric"
+              aria-label="เป้าเริ่มต้น"
             />
             <ConfirmDelete
               onDelete={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
@@ -237,5 +292,18 @@ export function KpiTemplatesManager() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Native select styled to match the Input primitive (same as SalesRankManager).
+function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      className={cn(
+        "h-9 rounded-md border border-border-strong bg-surface px-2 text-body text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-ring shrink-0",
+        className
+      )}
+      {...props}
+    />
   );
 }

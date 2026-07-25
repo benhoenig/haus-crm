@@ -111,7 +111,11 @@ export function TeamTable() {
                     <div className="flex items-center gap-2.5">
                       <Avatar name={e.nickname} tone="crimson" src={e.avatarUrl} />
                       <div className="min-w-0">
-                        <div className="font-medium">{e.nickname}</div>
+                        <div className="font-medium flex items-center gap-1.5">
+                          {e.nickname}
+                          {/* Probation tag — rank derives live on the เซลล์ใหม่ board */}
+                          {e.probationStart && <Pill tone="green">เซลล์ใหม่</Pill>}
+                        </div>
                         <div className="text-label text-text-subtle truncate">
                           {employeeFullName(e)}
                           {e.code ? ` · ${e.code}` : ""}

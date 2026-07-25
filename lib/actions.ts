@@ -76,6 +76,19 @@ const SAMPLE: Activity[] = [
   { id: "a12", created_by: "Stone", action: "Nego", attach: "lead", related_lead_id: "L-0011", related_lead_name: "คุณเบิร์ด", related_listing_id: null, related_listing_name: null, date: "2026-07-07", count: 1, remark: "ต่อรองราคา รอเจ้าของตอบ" },
   { id: "a13", created_by: "Stone", action: "ถ่ายรูป", attach: "listing", related_lead_id: null, related_lead_name: null, related_listing_id: "HRM2002", related_listing_name: "Rama 2 Grand Villa", date: "2026-07-07", count: 1, remark: null },
   { id: "a14", created_by: "Stone", action: "Call", attach: "lead", related_lead_id: "L-0014", related_lead_name: "คุณเอส", related_listing_id: null, related_listing_name: null, date: "2026-07-06", count: 2, remark: null },
+
+  // --- New-sales (probation) sample effort — Mhow & Golf, tallied by lib/probation ---
+  // Mhow: entered 2026-05-01 → cleared Rookie (Call 36 รวม, Survey 6), mid-Junior.
+  { id: "a15", created_by: "Mhow", action: "Call", attach: "lead", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-05-20", count: 12, remark: "โทรตามลีดโซนอโศก" },
+  { id: "a16", created_by: "Mhow", action: "Call", attach: "lead", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-06-18", count: 10, remark: null },
+  { id: "a17", created_by: "Mhow", action: "Call", attach: "lead", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-07-10", count: 14, remark: null },
+  { id: "a18", created_by: "Mhow", action: "Survey", attach: "listing", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-05-28", count: 6, remark: "สำรวจทรัพย์ใหม่บางแวก" },
+  { id: "a19", created_by: "Mhow", action: "Show", attach: "lead", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-06-25", count: 3, remark: null },
+  { id: "a20", created_by: "Mhow", action: "Owner Visit", attach: "listing", related_lead_id: null, related_lead_name: null, related_listing_id: "CASK001", related_listing_name: "Asoke Sky Residence", date: "2026-07-05", count: 2, remark: null },
+  // Golf: entered 2026-06-15 → mid-Rookie (Call 11/20, Survey 2/5).
+  { id: "a21", created_by: "Golf", action: "Call", attach: "lead", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-06-24", count: 5, remark: null },
+  { id: "a22", created_by: "Golf", action: "Call", attach: "lead", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-07-08", count: 6, remark: null },
+  { id: "a23", created_by: "Golf", action: "Survey", attach: "listing", related_lead_id: null, related_lead_name: null, related_listing_id: null, related_listing_name: null, date: "2026-07-03", count: 2, remark: "สำรวจกับพี่เบนซ์" },
 ];
 
 export function listActivities(): Activity[] {

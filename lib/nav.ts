@@ -11,6 +11,7 @@ import {
   Landmark,
   Handshake,
   Globe,
+  Sprout,
   Settings,
 } from "lucide-react";
 
@@ -85,6 +86,8 @@ export const NAV: NavGroup[] = [
     title: "บุคลากร",
     items: [
       { href: "/team", label: "ทีม / บุคคล", icon: UserCog, perm: ["people.manage", "performance.view_team"] },
+      // New-sales probation board — rank ladder progress, CEO/Sales Leader oversight.
+      { href: "/new-sales", label: "เซลล์ใหม่", icon: Sprout, perm: "performance.view_team" },
     ],
   },
   {

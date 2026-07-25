@@ -7,6 +7,7 @@ import { RbacProvider } from "@/components/RbacProvider";
 import { MasterDataProvider } from "@/components/MasterDataProvider";
 import { ChecklistProvider } from "@/components/ChecklistProvider";
 import { CopyTemplatesProvider } from "@/components/CopyTemplatesProvider";
+import { ProbationProvider } from "@/components/ProbationProvider";
 import { NotificationsProvider } from "@/components/NotificationsProvider";
 import { NewLeadsProvider } from "@/components/NewLeadsProvider";
 import { LogActivity } from "@/components/LogActivity";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MasterDataProvider>
           <ChecklistProvider>
           <CopyTemplatesProvider>
+          <ProbationProvider>
           <NotificationsProvider>
             <NewLeadsProvider>
               <MobileNavProvider>
@@ -54,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </MobileNavProvider>
             </NewLeadsProvider>
           </NotificationsProvider>
+          </ProbationProvider>
           </CopyTemplatesProvider>
           </ChecklistProvider>
           </MasterDataProvider>

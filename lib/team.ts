@@ -52,6 +52,9 @@ export interface Employee {
   // Dates
   birthday?: string; // YYYY-MM-DD
   startDate?: string; // YYYY-MM-DD
+  /** New-sales probation program entry (HAUS-authored, not in the HR Sheet). Present =
+   *  "เซลล์ใหม่" — rank derives from the activity log (lib/probation). Cleared on pass. */
+  probationStart?: string; // YYYY-MM-DD
 
   // Emergency
   emergencyContact?: string;
@@ -177,6 +180,7 @@ const EMPLOYEES: Employee[] = [
     email: "phapaskorn@gmail.com",
     workEmail: "phapaskorn@gmail.com",
     startDate: "2025-01-06",
+    probationStart: "2026-05-01", // new-sales program entry (sample)
     commissionRate: 0.5,
   },
   {
@@ -194,6 +198,7 @@ const EMPLOYEES: Employee[] = [
     phone: "081-909-4966",
     email: "golfk.ph@gmail.com",
     startDate: "2025-03-01",
+    probationStart: "2026-06-15", // new-sales program entry (sample)
     commissionRate: 0.5,
   },
   {
@@ -272,6 +277,11 @@ export function listEmployees(): Employee[] {
 /** Sales staff eligible for lead assignment (active + in the sales department). */
 export function listSalesAgents(): Employee[] {
   return EMPLOYEES.filter((e) => e.status === "active" && e.department === "sales");
+}
+
+/** New sales still in the probation program (the เซลล์ใหม่ board's population). */
+export function listNewSales(): Employee[] {
+  return listSalesAgents().filter((e) => !!e.probationStart);
 }
 
 export function getEmployee(id: string): Employee | undefined {
