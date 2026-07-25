@@ -12,7 +12,7 @@ export function Topbar({
 }: {
   title: string;
   subtitle?: string;
-  /** Right-side actions. Omit to render the default ส่งออก / เพิ่มรายการ buttons. */
+  /** Right-side actions. Omit to render the default เพิ่มรายการ button. */
   actions?: React.ReactNode;
 }) {
   const { setOpen } = useMobileNav();
@@ -31,12 +31,7 @@ export function Topbar({
       </div>
       <div className="ml-auto flex items-center gap-2 shrink-0">
         {actions === undefined ? (
-          <>
-            <Button variant="secondary" size="sm">
-              ส่งออก
-            </Button>
-            <Button size="sm">+ เพิ่มรายการ</Button>
-          </>
+          <Button size="sm">+ เพิ่มรายการ</Button>
         ) : (
           actions
         )}
