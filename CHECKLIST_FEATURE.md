@@ -116,7 +116,7 @@ Built as design-first in-memory state now (see banner at top). The DDL below doc
 "wire later" target, not built in this phase. Three tables + one Storage bucket when wired.
 
 ```sql
-create type checklist_item_type as enum ('task', 'document', 'date');
+create type checklist_item_type as enum ('task', 'document', 'date', 'link', 'cadence');
 
 -- Template definition (edited in Settings)
 create table checklist_template (
@@ -160,6 +160,21 @@ create table listing_checklist_item (
 ```
 
 **Storage:** bucket `listing-docs`, object path `{listing_id}/{template_item_id}/{filename}`.
+
+### Listing focus-tier metadata (columns on the listing, not checklist items)
+
+Two per-listing dates are tier metadata, held in `ChecklistProvider` now (in-memory), wired
+later as columns on the listing (or a small `listing_focus_meta` table keyed by `listing_id`):
+
+| Field | Tier | Meaning | UI |
+|---|---|---|---|
+| `a_list_date` | A-List | when it entered A-List ("Date A List" from the sheet) | checklist card header |
+| `agreement_start` | Exclusive | signed exclusive-agreement effective date | `ExclusiveAgreementCard` (sidebar) |
+| `agreement_end` | Exclusive | agreement expiry = the sell-by commitment deadline | same card; drives the expiry pill |
+
+`agreement_end` is the one with teeth — it's the deadline we commit to the seller. The card
+shows a red/amber/green "days left" pill; wire-later it should feed a dashboard "expiring soon"
+reminder (renew or delist) alongside the `date`-item reminders in §10.
 
 ### Live-join, not snapshot
 

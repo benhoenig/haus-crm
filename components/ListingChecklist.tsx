@@ -63,16 +63,19 @@ export function ListingChecklist({
           <Progress items={allItems} listingId={listingId} />
         </CardHeader>
 
-        {/* Listing metadata — "Date A List" (when it entered A-List) */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
-          <span className="text-small text-text-subtle">ขึ้น A List</span>
-          <input
-            type="date"
-            value={aListDate ?? ""}
-            onChange={(e) => setAListDate(listingId, e.target.value || null)}
-            className="h-7 rounded-md border border-border-strong bg-surface px-2 num text-small text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          />
-        </div>
+        {/* Listing metadata — "Date A List" (when it entered A-List). A-List tier only; the
+            Exclusive agreement window lives in its own sidebar card (ExclusiveAgreementCard). */}
+        {tier === "a_list" && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
+            <span className="text-small text-text-subtle">ขึ้น A List</span>
+            <input
+              type="date"
+              value={aListDate ?? ""}
+              onChange={(e) => setAListDate(listingId, e.target.value || null)}
+              className="h-7 rounded-md border border-border-strong bg-surface px-2 num text-small text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            />
+          </div>
+        )}
 
         {/* Role filter — lets each team focus on their own steps */}
         {rolesPresent.length > 1 && (

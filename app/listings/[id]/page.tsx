@@ -20,6 +20,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { ListingOwnerCard } from "@/components/ListingOwnerCard";
+import { ExclusiveAgreementCard } from "@/components/ExclusiveAgreementCard";
 import { ListingChecklist } from "@/components/ListingChecklist";
 import { ListingCopyButton } from "@/components/ListingCopyButton";
 import { getListing } from "@/lib/queries";
@@ -290,6 +291,9 @@ export default async function ListingDetailPage({
                 </Row>
               </CardContent>
             </Card>
+
+            {/* Exclusive agreement window — renders only for Exclusive listings (null otherwise) */}
+            <ExclusiveAgreementCard listingId={listing.listing_id} potential={listing.potential} />
 
             {/* Project knowledge — links to the full project page */}
             <Card>

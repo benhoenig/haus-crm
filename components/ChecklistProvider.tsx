@@ -41,6 +41,16 @@ export const EMPTY_ITEM_STATE: ChecklistItemState = {
 
 type ProgressMap = Record<string, Record<string, ChecklistItemState>>;
 
+// Exclusive listing agreement — the signed exclusive-listing contract's term (Exclusive tier
+// only). We commit to selling within this window, so `end` drives the expiry warning and, later,
+// renewal reminders. Wire later = agreement_start / agreement_end date columns on the listing.
+export interface ExclusiveAgreement {
+  start: string | null; // "YYYY-MM-DD" — agreement signed / effective date
+  end: string | null; // "YYYY-MM-DD" — agreement expiry (commitment deadline)
+}
+
+export const EMPTY_AGREEMENT: ExclusiveAgreement = { start: null, end: null };
+
 interface ChecklistValue {
   templates: ChecklistTemplate[];
   setTemplates: React.Dispatch<React.SetStateAction<ChecklistTemplate[]>>;
@@ -53,6 +63,10 @@ interface ChecklistValue {
    *  = a timestamp column auto-stamped when potential is set; editable preview for now. */
   aListDateFor: (listingId: string) => string | null;
   setAListDate: (listingId: string, date: string | null) => void;
+  /** Exclusive-tier only — the signed agreement's start/end window (Exclusive listings commit
+   *  to a sell-by deadline). Wire later = agreement_start / agreement_end columns. */
+  exclusiveAgreementFor: (listingId: string) => ExclusiveAgreement;
+  setExclusiveAgreement: (listingId: string, patch: Partial<ExclusiveAgreement>) => void;
 }
 
 const Ctx = React.createContext<ChecklistValue | null>(null);
@@ -67,6 +81,7 @@ export function ChecklistProvider({ children }: { children: React.ReactNode }) {
   );
   const [progress, setProgress] = React.useState<ProgressMap>({});
   const [aListDates, setAListDates] = React.useState<Record<string, string | null>>({});
+  const [agreements, setAgreements] = React.useState<Record<string, ExclusiveAgreement>>({});
 
   const templatesFor = React.useCallback(
     (potential: string | null | undefined) => {
@@ -107,6 +122,19 @@ export function ChecklistProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const exclusiveAgreementFor = React.useCallback(
+    (listingId: string) => agreements[listingId] ?? EMPTY_AGREEMENT,
+    [agreements]
+  );
+  const setExclusiveAgreement = React.useCallback(
+    (listingId: string, patch: Partial<ExclusiveAgreement>) =>
+      setAgreements((prev) => ({
+        ...prev,
+        [listingId]: { ...(prev[listingId] ?? EMPTY_AGREEMENT), ...patch },
+      })),
+    []
+  );
+
   const value: ChecklistValue = {
     templates,
     setTemplates,
@@ -115,6 +143,8 @@ export function ChecklistProvider({ children }: { children: React.ReactNode }) {
     patchState,
     aListDateFor,
     setAListDate,
+    exclusiveAgreementFor,
+    setExclusiveAgreement,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
