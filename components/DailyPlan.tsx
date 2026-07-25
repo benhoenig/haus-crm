@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Plus,
   SlidersHorizontal,
   Target as TargetIcon,
@@ -19,6 +20,7 @@ import { Pill } from "@/components/ui/Pill";
 import { RingProgress } from "@/components/ui/RingProgress";
 import { Input } from "@/components/ui/Input";
 import { TaskDetailSheet, type TaskDraft } from "@/components/TaskDetailSheet";
+import { MiniCalendar } from "@/components/PlanCalendar";
 import { formatThaiDate } from "@/lib/format";
 import {
   listTasks,
@@ -53,6 +55,7 @@ export function DailyPlan({ agent }: { agent: string }) {
     open: false,
     task: null,
   });
+  const [calOpen, setCalOpen] = React.useState(false);
 
   const dayTasks = tasks
     .filter((t) => t.date === date)
@@ -114,7 +117,7 @@ export function DailyPlan({ agent }: { agent: string }) {
     <Card>
       {/* Header: date nav + ring */}
       <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="relative flex items-center gap-2 min-w-0">
           <button
             onClick={() => setDate((d) => addDays(d, -1))}
             aria-label="วันก่อนหน้า"
@@ -122,10 +125,23 @@ export function DailyPlan({ agent }: { agent: string }) {
           >
             <ChevronLeft size={16} strokeWidth={1.75} />
           </button>
-          <div className="min-w-0">
-            <div className="text-label text-text-subtle">แผนประจำวัน{rel ? ` · ${rel}` : ""}</div>
-            <div className="text-h3 num">{formatThaiDate(date)}</div>
-          </div>
+          {/* Date label → tap to open the month picker */}
+          <button
+            onClick={() => setCalOpen((o) => !o)}
+            aria-label="เลือกวันที่"
+            aria-expanded={calOpen}
+            className="min-w-0 flex items-center gap-1.5 rounded-md px-1.5 -mx-1 py-0.5 hover:bg-surface-hover transition-colors"
+          >
+            <div className="min-w-0 text-left">
+              <div className="text-label text-text-subtle">แผนประจำวัน{rel ? ` · ${rel}` : ""}</div>
+              <div className="text-h3 num">{formatThaiDate(date)}</div>
+            </div>
+            <ChevronDown
+              size={15}
+              strokeWidth={2}
+              className={cn("text-text-subtle shrink-0 transition-transform", calOpen && "rotate-180")}
+            />
+          </button>
           <button
             onClick={() => setDate((d) => addDays(d, 1))}
             aria-label="วันถัดไป"
@@ -140,6 +156,23 @@ export function DailyPlan({ agent }: { agent: string }) {
             >
               วันนี้
             </button>
+          )}
+
+          {/* Month-picker popover — backdrop dismisses on outside tap */}
+          {calOpen && (
+            <>
+              <div onClick={() => setCalOpen(false)} className="fixed inset-0 z-40" />
+              <div className="absolute top-[calc(100%+8px)] left-0 z-50 w-[300px] max-w-[calc(100vw-48px)] p-3.5 rounded-lg bg-surface border border-border shadow-pop">
+                <MiniCalendar
+                  selected={date}
+                  tasks={tasks}
+                  onPick={(d) => {
+                    setDate(d);
+                    setCalOpen(false);
+                  }}
+                />
+              </div>
+            </>
           )}
         </div>
         <RingProgress pct={pct} size={56} stroke={6} />
