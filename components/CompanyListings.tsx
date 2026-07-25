@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Building2, Phone, Users, ChevronDown, Check, ListFilter } from "lucide-react";
+import { Search, Building2, Phone, Users, ChevronDown, Check, ListFilter, Star } from "lucide-react";
 import type { ListingRow } from "@/lib/queries";
 import type { Employee } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -14,7 +14,7 @@ import { SortHeader, useSort } from "@/components/ui/SortHeader";
 import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { formatBaht, formatRent, formatNumber } from "@/lib/format";
-import { listingStatusDot, potentialTone } from "@/lib/status";
+import { listingStatusDot, potentialTone, potentialGroup } from "@/lib/status";
 import { compareValues, orderIndex } from "@/lib/sort";
 import { listingAgent } from "@/lib/listings";
 import { cn } from "@/lib/cn";
@@ -23,6 +23,12 @@ import { listingCoverImage } from "@/lib/placeholderImages"; // PREVIEW ONLY —
 const STATUS_ORDER = [
   "Posted", "Ready to Post", "Update", "Need Info",
   "Sold", "Sold Completed", "Cancel", "Cancel Completed",
+];
+
+// High-value focus tiers (potential) — ordered Exclusive → A-List.
+const POT_GROUPS = [
+  { key: "exclusive", label: "Exclusive" },
+  { key: "a_list", label: "A-List" },
 ];
 
 // Listing + its managing sales agent (design-first seed). NO owner data is surfaced here —
@@ -50,6 +56,7 @@ export function CompanyListings({ listings }: { listings: ListingRow[] }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState("all");
+  const [potFilter, setPotFilter] = React.useState("all");
   const [agentNick, setAgentNick] = React.useState<string>("all");
   const { sort, onSort } = useSort();
 
@@ -80,6 +87,15 @@ export function CompanyListings({ listings }: { listings: ListingRow[] }) {
     })),
   ];
 
+  const focusOptions: FilterOption[] = [
+    { key: "all", label: "ทุกระดับ", count: rows.length },
+    ...POT_GROUPS.filter((g) => rows.some((l) => potentialGroup(l.potential) === g.key)).map((g) => ({
+      key: g.key,
+      label: g.label,
+      count: rows.filter((l) => potentialGroup(l.potential) === g.key).length,
+    })),
+  ];
+
   const agentOptions: FilterOption[] = [
     { key: "all", label: "ทุกเซล", count: rows.length },
     ...agentCounts.map(({ agent, count }) => ({
@@ -94,6 +110,7 @@ export function CompanyListings({ listings }: { listings: ListingRow[] }) {
   const query = q.trim().toLowerCase();
   const filtered = rows
     .filter((l) => status === "all" || l.listing_status === status)
+    .filter((l) => potFilter === "all" || potentialGroup(l.potential) === potFilter)
     .filter((l) => agentNick === "all" || l.agent?.nickname === agentNick)
     .filter(
       (l) =>
@@ -118,6 +135,13 @@ export function CompanyListings({ listings }: { listings: ListingRow[] }) {
           <span className="num text-text-muted">{list.length.toLocaleString("en-US")}</span> ทรัพย์
         </div>
         <div className="flex items-center gap-2 ml-auto">
+          <FilterDropdown
+            icon={<Star size={14} strokeWidth={1.75} />}
+            title="โฟกัส"
+            value={potFilter}
+            options={focusOptions}
+            onChange={setPotFilter}
+          />
           <FilterDropdown
             icon={<Users size={14} strokeWidth={1.75} />}
             title="ผู้ดูแล"

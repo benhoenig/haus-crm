@@ -20,6 +20,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { ListingOwnerCard } from "@/components/ListingOwnerCard";
+import { ListingChecklist } from "@/components/ListingChecklist";
+import { ListingCopyButton } from "@/components/ListingCopyButton";
 import { getListing } from "@/lib/queries";
 import { listingGallery } from "@/lib/placeholderImages"; // PREVIEW ONLY — fake listing photos
 import { getProjectByName } from "@/lib/projects";
@@ -344,19 +346,23 @@ export default async function ListingDetailPage({
               listingId={listing.listing_id}
             />
 
-            {/* Marketing — placeholder */}
+            {/* Marketing */}
             <Card>
               <CardHeader>
                 <CardTitle>การตลาด</CardTitle>
                 <Pill>เร็ว ๆ นี้</Pill>
               </CardHeader>
               <CardContent className="flex flex-col gap-2.5 text-small">
-                {["DDproperty", "Livinginsider", "PropertyHub"].map((n) => (
-                  <div key={n} className="flex items-center justify-between text-text-subtle">
-                    <span>{n}</span>
-                    <span>—</span>
-                  </div>
-                ))}
+                {/* Ad-copy generator (คำประกาศโฆษณา) — live template fill */}
+                <ListingCopyButton listing={listing} />
+                <div className="border-t border-border pt-2.5 flex flex-col gap-2.5">
+                  {["DDproperty", "Livinginsider", "PropertyHub"].map((n) => (
+                    <div key={n} className="flex items-center justify-between text-text-subtle">
+                      <span>{n}</span>
+                      <span>—</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
@@ -372,6 +378,9 @@ export default async function ListingDetailPage({
             </Card>
           </div>
         </div>
+
+        {/* Value-add checklist — full-width, last block. A-List / Exclusive only (null otherwise). */}
+        <ListingChecklist listingId={listing.listing_id} potential={listing.potential} />
       </div>
     </>
   );

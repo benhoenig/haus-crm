@@ -5,6 +5,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { MobileNavProvider } from "@/components/MobileNav";
 import { RbacProvider } from "@/components/RbacProvider";
 import { MasterDataProvider } from "@/components/MasterDataProvider";
+import { ChecklistProvider } from "@/components/ChecklistProvider";
+import { CopyTemplatesProvider } from "@/components/CopyTemplatesProvider";
 import { NotificationsProvider } from "@/components/NotificationsProvider";
 import { NewLeadsProvider } from "@/components/NewLeadsProvider";
 import { LogActivity } from "@/components/LogActivity";
@@ -36,6 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RbacProvider>
           {/* Inside RbacProvider — feeds/leads are scoped to the current viewer. */}
           <MasterDataProvider>
+          <ChecklistProvider>
+          <CopyTemplatesProvider>
           <NotificationsProvider>
             <NewLeadsProvider>
               <MobileNavProvider>
@@ -50,6 +54,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </MobileNavProvider>
             </NewLeadsProvider>
           </NotificationsProvider>
+          </CopyTemplatesProvider>
+          </ChecklistProvider>
           </MasterDataProvider>
         </RbacProvider>
       </body>

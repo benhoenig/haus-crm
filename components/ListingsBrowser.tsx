@@ -12,7 +12,7 @@ import { SortHeader, useSort } from "@/components/ui/SortHeader";
 import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { formatBaht, formatRent, formatNumber, daysOnMarketLabel } from "@/lib/format";
-import { listingStatusDot, potentialTone } from "@/lib/status";
+import { listingStatusDot, potentialTone, potentialGroup, type PotentialGroup } from "@/lib/status";
 import { compareValues, orderIndex } from "@/lib/sort";
 import { cn } from "@/lib/cn";
 import { listingCoverImage } from "@/lib/placeholderImages"; // PREVIEW ONLY — fake listing photos
@@ -27,6 +27,13 @@ const STATUS_ORDER = [
   "Sold Completed",
   "Cancel",
   "Cancel Completed",
+];
+
+// Focus tiers — the high-value "potential" grades that get extra cross-team
+// attention. Active chip uses the tier's own tone so the filter itself signals priority.
+const POT_CHIPS: { key: PotentialGroup; label: string; active: string }[] = [
+  { key: "exclusive", label: "Exclusive", active: "bg-accent-wash text-accent border-accent" },
+  { key: "a_list", label: "A-List", active: "bg-amber-bg text-amber border-amber" },
 ];
 
 // Sort-value extractors. Categorical columns return a numeric rank so they
@@ -50,6 +57,7 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [filter, setFilter] = React.useState("all");
+  const [potFilter, setPotFilter] = React.useState<"all" | PotentialGroup>("all");
   const { sort, onSort } = useSort();
 
   const chips = [
@@ -60,9 +68,15 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
     })),
   ];
 
+  // Only show a focus chip for a tier that actually has listings.
+  const potChips = POT_CHIPS.filter((c) =>
+    listings.some((l) => potentialGroup(l.potential) === c.key)
+  );
+
   const query = q.trim().toLowerCase();
   const filtered = listings
     .filter((l) => filter === "all" || l.listing_status === filter)
+    .filter((l) => potFilter === "all" || potentialGroup(l.potential) === potFilter)
     .filter(
       (l) =>
         !query ||
@@ -116,6 +130,41 @@ export function ListingsBrowser({ listings }: { listings: ListingRow[] }) {
           })}
         </div>
       </div>
+
+      {/* Focus filter — high-value potential tiers (Exclusive / A-List) */}
+      {potChips.length > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-border flex-wrap">
+          <span className="text-label text-text-subtle mr-1">โฟกัส</span>
+          <button
+            onClick={() => setPotFilter("all")}
+            className={cn(
+              "text-small font-medium rounded-md px-3 py-1.5 border transition-colors",
+              potFilter === "all"
+                ? "bg-text text-background border-text"
+                : "border-border-strong text-text-muted hover:bg-surface-2"
+            )}
+          >
+            ทั้งหมด
+          </button>
+          {potChips.map((c) => {
+            const n = listings.filter((l) => potentialGroup(l.potential) === c.key).length;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setPotFilter(potFilter === c.key ? "all" : c.key)}
+                className={cn(
+                  "text-small font-medium rounded-md px-3 py-1.5 border transition-colors",
+                  potFilter === c.key
+                    ? c.active
+                    : "border-border-strong text-text-muted hover:bg-surface-2"
+                )}
+              >
+                {c.label} <span className="num">({n})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <CardContent className="p-0">
         {rows.length === 0 ? (

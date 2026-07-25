@@ -21,6 +21,21 @@ export function potentialTone(p: string | null | undefined): "neutral" | "accent
   return "amber";
 }
 
+// potential -> normalized focus tier. Collapses messy source values (e.g.
+// "A List + Fb add") into the three governed tiers so filtering/grouping is exact.
+// Priority order: Exclusive > A-List > Normal (mirrors potentialTone).
+export type PotentialGroup = "exclusive" | "a_list" | "normal";
+export function potentialGroup(p: string | null | undefined): PotentialGroup {
+  if (!p || p === "Normal") return "normal";
+  if (p.startsWith("Exclusive")) return "exclusive";
+  return "a_list";
+}
+
+// High-value tiers get extra cross-team focus (value-add checklists).
+export function isHighValue(p: string | null | undefined): boolean {
+  return potentialGroup(p) !== "normal";
+}
+
 // lead_status -> dot color
 const LEAD_STATUS_DOT: Record<string, string> = {
   Active: "bg-blue",

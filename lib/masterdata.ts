@@ -13,6 +13,12 @@ export const PROPERTY_TYPES: string[] = [
   "อาคารพาณิชย์",
 ];
 
+// Listing "potential" tier — the focus grade. Ordered by priority (top first).
+// Source data has a messy variant ("A List + Fb add") that normalizes to "A List"
+// via potentialGroup() in lib/status.ts; on DB wiring it becomes a stored enum.
+// Exclusive + A List are the high-value tiers that get value-add checklists.
+export const POTENTIALS: string[] = ["Exclusive", "A List", "Normal"];
+
 export type TemplateKind = "count" | "baht" | "check";
 export type TemplateSource = "activity" | "pipeline" | "manual";
 

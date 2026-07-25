@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ShieldCheck, Users, Map, Home, ListChecks, Activity, Target, Info, Lock } from "lucide-react";
+import { ShieldCheck, Users, Map, Home, ListChecks, Activity, Target, Info, Lock, ClipboardList, Megaphone } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { type Zone } from "@/lib/zones";
 import { RolesManager } from "@/components/RolesManager";
@@ -13,11 +13,13 @@ import {
   ActionTypesManager,
   KpiTemplatesManager,
 } from "@/components/MasterDataManagers";
+import { ChecklistTemplatesManager } from "@/components/ChecklistTemplatesManager";
+import { CopyTemplateEditor } from "@/components/CopyTemplateEditor";
 import { useRbac } from "@/components/RbacProvider";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-type SectionKey = "roles" | "teams" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi";
+type SectionKey = "roles" | "teams" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi" | "checklists" | "copy";
 // Each section is gated to a permission — the sub-nav only shows what the viewer can govern,
 // so Listing Support (reference.manage) sees the reference lists but not roles/zones/KPI.
 type Section = { key: SectionKey; label: string; icon: LucideIcon; perm: string };
@@ -28,6 +30,8 @@ const SECTIONS: Section[] = [
   { key: "teams", label: "ทีมขาย", icon: Users, perm: "teams.manage" },
   { key: "zones", label: "โซน", icon: Map, perm: "masterdata.govern" },
   { key: "property_types", label: "ประเภททรัพย์", icon: Home, perm: "reference.manage" },
+  { key: "checklists", label: "เช็คลิสต์ทรัพย์", icon: ClipboardList, perm: "checklists.manage" },
+  { key: "copy", label: "คำโฆษณา", icon: Megaphone, perm: "copy.manage" },
   { key: "lead_fields", label: "ช่องทาง & ฟิลด์ Lead", icon: ListChecks, perm: "reference.manage" },
   { key: "action_types", label: "ประเภทกิจกรรม", icon: Activity, perm: "masterdata.govern" },
   { key: "kpi", label: "เป้าหมาย KPI", icon: Target, perm: "masterdata.govern" },
@@ -100,6 +104,34 @@ export function SettingsView({
           <>
             <SectionHeader title="ประเภททรัพย์" desc="รายการประเภททรัพย์กลาง · จัดการโดย CEO / Listing Support" />
             <PropertyTypesManager usage={propertyTypeUsage} />
+          </>
+        )}
+        {section === "checklists" && (
+          <>
+            <SectionHeader
+              title="เช็คลิสต์ทรัพย์เด่น"
+              desc="เทมเพลตงานเพิ่มมูลค่าสำหรับทรัพย์ A-List / Exclusive — กำหนดว่าใช้กับระดับไหน มอบหมายให้ทีมใด · จัดการโดย CEO / Listing Support"
+            />
+            <Note>
+              ทรัพย์ A-List / Exclusive จะแสดงเช็คลิสต์นี้อัตโนมัติในหน้าทรัพย์ ตั้งค่า “ใช้กับ” เป็น Exclusive
+              หรือ A-List (หรือทั้งคู่) เพื่อคุมว่าเทมเพลตไหนใช้กับระดับใด{" "}
+              <span className="text-text">โหมดออกแบบ: การเปลี่ยนแปลงยังไม่ถูกบันทึก</span>
+            </Note>
+            <ChecklistTemplatesManager />
+          </>
+        )}
+        {section === "copy" && (
+          <>
+            <SectionHeader
+              title="เทมเพลตคำโฆษณา"
+              desc="คำประกาศโฆษณาทรัพย์ แยกตามระดับ (Grade) × ประเภท (ขาย/เช่า) — สร้างอัตโนมัติจากข้อมูลทรัพย์ · จัดการโดย CEO / Marketing / Listing Support"
+            />
+            <Note>
+              คำโฆษณาสร้างจากเทมเพลตเหล่านี้ โดยแทนค่า <code className="num">&lt;...&gt;</code> ด้วยข้อมูลของทรัพย์แต่ละรายการ
+              — ปุ่ม “สร้างคำโฆษณา” ในหน้าทรัพย์จะให้ Headline / โพสต์ / DDproperty พร้อมคัดลอก{" "}
+              <span className="text-text">โหมดออกแบบ: การเปลี่ยนแปลงยังไม่ถูกบันทึก</span>
+            </Note>
+            <CopyTemplateEditor />
           </>
         )}
         {section === "lead_fields" && (

@@ -128,6 +128,16 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: "จัดการรายการอ้างอิง (ประเภททรัพย์ / ช่องทาง / ฟิลด์ Lead)",
         hint: "ประเภททรัพย์ · Marketing Channel · Contact By · เพศ · สัญชาติ",
       },
+      {
+        key: "checklists.manage",
+        label: "จัดการเช็คลิสต์ทรัพย์ (A-List / Exclusive)",
+        hint: "เทมเพลตงานเพิ่มมูลค่าทรัพย์เด่น — CEO / Listing Support",
+      },
+      {
+        key: "copy.manage",
+        label: "จัดการเทมเพลตคำโฆษณา",
+        hint: "คำประกาศโฆษณาทรัพย์ (Headline / โพสต์ / DDproperty) — CEO / Marketing / Listing Support",
+      },
     ],
   },
   {
@@ -231,6 +241,10 @@ export const SEED_ROLES: Role[] = [
       // Governs the lead/listing reference vocabularies they live in (property type, marketing
       // channel, contact-by, gender, nationality) — NOT zones / activity / KPI (masterdata.govern).
       "reference.manage",
+      // Owns the value-add checklist templates for A-List/Exclusive listings (cross-team steps).
+      "checklists.manage",
+      // Also edits the ad-copy templates (คำประกาศโฆษณา) alongside Marketing.
+      "copy.manage",
       // No activity.log: this role only manages/posts listings on portals — it doesn't do
       // the logged field actions (Owner Visit / Show / Call…), so no +บันทึก activity FAB.
       "performance.view_own",
@@ -248,6 +262,8 @@ export const SEED_ROLES: Role[] = [
       // until the portal is designed). NOT granted to Listing Support: their portal work
       // is posting listings (listings.marketing), not the website itself.
       "website.manage",
+      // Owns the ad-copy templates (คำประกาศโฆษณา) — copywriting is Marketing's job.
+      "copy.manage",
       "activity.log",
       "performance.view_own",
       "targets.stretch",
