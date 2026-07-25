@@ -94,47 +94,6 @@ export function getActivitiesForLead(leadId: string | null | undefined): Activit
   return listActivities().filter((a) => a.related_lead_id === leadId);
 }
 
-export interface ActionTally {
-  action: string;
-  attach: AttachMode;
-  count: number;
-  events: number;
-}
-
-/** Aggregate the same rows by action type — the KPI/ผลงาน view of the unified log. */
-export function tallyByAction(activities: Activity[]): ActionTally[] {
-  const map = new Map<string, ActionTally>();
-  for (const a of activities) {
-    const t = map.get(a.action) ?? { action: a.action, attach: a.attach, count: 0, events: 0 };
-    t.count += a.count;
-    t.events += 1;
-    map.set(a.action, t);
-  }
-  return [...map.values()].sort((a, b) => b.count - a.count);
-}
-
-export interface ActivitySummary {
-  total: number; // total count (tallies)
-  events: number; // number of logged rows
-  leadTagged: number;
-  listingTagged: number;
-  untagged: number;
-}
-
-export function summarize(activities: Activity[]): ActivitySummary {
-  let total = 0,
-    leadTagged = 0,
-    listingTagged = 0,
-    untagged = 0;
-  for (const a of activities) {
-    total += a.count;
-    if (a.related_lead_id) leadTagged += 1;
-    else if (a.related_listing_id) listingTagged += 1;
-    else untagged += 1;
-  }
-  return { total, events: activities.length, leadTagged, listingTagged, untagged };
-}
-
 // Sample attach options for the FAB dropdowns (design phase — real leads/listings
 // wired later). Kept small on purpose.
 export const SAMPLE_LEAD_OPTIONS = [

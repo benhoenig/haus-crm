@@ -10,7 +10,6 @@ import {
   Contact,
   Landmark,
   Handshake,
-  Activity,
   Globe,
   Settings,
 } from "lucide-react";
@@ -58,7 +57,9 @@ export const NAV: NavGroup[] = [
     title: "เซลล์",
     items: [
       { href: "/leads", label: "Lead", icon: Users, perm: ["leads.view_all", "leads.view_own"] },
-      { href: "/listings", label: "ทรัพย์", icon: Building2, perm: "listings.view" },
+      // Sales' operational listing page (create + manage). Gated to listings.create so it's
+      // Sales/CEO only — everyone else views the same inventory via ทรัพย์ทั้งบริษัท → detail.
+      { href: "/listings", label: "ทรัพย์", icon: Building2, perm: "listings.create" },
     ],
   },
   {
@@ -79,10 +80,10 @@ export const NAV: NavGroup[] = [
     items: [{ href: "/website", label: "เว็บพอร์ทัล", icon: Globe, perm: "website.manage" }],
   },
   {
-    // Leadership-only: gated to performance.view_team (agents don't have it).
-    title: "ผลงาน",
+    // HR / people directory — roster, roles, and employee records. Leadership/HR only:
+    // visible with people.manage (full HR) or performance.view_team (leaders see the roster).
+    title: "บุคลากร",
     items: [
-      { href: "/performance", label: "Actions / KPI", icon: Activity, perm: "performance.view_team" },
       { href: "/team", label: "ทีม / บุคคล", icon: UserCog, perm: ["people.manage", "performance.view_team"] },
     ],
   },

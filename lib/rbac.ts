@@ -48,6 +48,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     label: "คลังทรัพย์",
     perms: [
       { key: "listings.view", label: "ดูทรัพย์" },
+      { key: "listings.create", label: "เพิ่มทรัพย์ใหม่", hint: "งานของเซลล์ — สร้างรายการทรัพย์ (แยกจากการแก้ไข)" },
       { key: "listings.edit", label: "แก้ไขทรัพย์" },
       { key: "listings.marketing", label: "การตลาด / ลงพอร์ทัล" },
       { key: "projects.edit", label: "แก้ไขโครงการ" },
@@ -207,7 +208,7 @@ export const SEED_ROLES: Role[] = [
     id: "agent",
     name: "Agent (Sales)",
     description: "เซลส์ / ดูแลดีลของตัวเอง",
-    // No performance.view_team: the ผลงาน group (Actions/KPI + team) is leadership-only.
+    // No performance.view_team: the ผลงาน group (team) is leadership-only.
     // Agents keep performance.view_own for their own แผนวันนี้. The dashboard leaderboard is
     // ungated, so agents still see it.
     permissions: [
@@ -216,6 +217,7 @@ export const SEED_ROLES: Role[] = [
       "contacts.view_own",
       "contacts.manage",
       "listings.view",
+      "listings.create", // Sales sources & creates listings (the ทรัพย์ page + เพิ่มทรัพย์)
       "listings.edit",
       "lastmatch.add",
       "activity.log",
@@ -281,6 +283,7 @@ export const SEED_ROLES: Role[] = [
       "contacts.view_all",
       "contacts.manage",
       "listings.view",
+      "listings.create", // Sales Leaders still sell — they source & create listings too
       "listings.edit",
       "lastmatch.add",
       "activity.log",

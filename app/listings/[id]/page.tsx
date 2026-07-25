@@ -211,9 +211,6 @@ export default async function ListingDetailPage({
             <Card>
               <CardHeader>
                 <CardTitle>กิจกรรมล่าสุด</CardTitle>
-                <Link href="/performance" className="text-small text-accent hover:underline">
-                  ดูทั้งหมด
-                </Link>
               </CardHeader>
               {activities.length > 0 ? (
                 <div className="divide-y divide-border">

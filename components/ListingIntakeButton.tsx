@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/Button";
 import { useRbac } from "@/components/RbacProvider";
 import { ListingForm } from "@/components/ListingForm";
 
-// Topbar action for the listings page. Gated to listings.edit — whoever can edit listings can
-// create one (no separate listings.create perm exists). Opens the design-first ListingForm.
+// Topbar action for the listings page. Gated to listings.create — creating listings is Sales'
+// job (not Listing Support, who edits/markets existing ones). Opens the design-first ListingForm.
 export function ListingIntakeButton() {
   const { can } = useRbac();
   const [open, setOpen] = React.useState(false);
 
-  if (!can("listings.edit")) return null;
+  if (!can("listings.create")) return null;
 
   return (
     <>

@@ -87,7 +87,7 @@ export function notificationHref(n: AppNotification): string | null {
     case "task":
       return "/today";
     case "target":
-      return "/performance";
+      return "/today"; // targets/KPI progress live in the TargetsBoard on แผนวันนี้
     default:
       return null;
   }
