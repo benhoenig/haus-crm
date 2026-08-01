@@ -13,6 +13,7 @@ import {
   Globe,
   Sprout,
   Settings,
+  CalendarOff,
 } from "lucide-react";
 
 export interface NavItem {
@@ -71,7 +72,15 @@ export const NAV: NavGroup[] = [
       { href: "/company-listings", label: "ทรัพย์ทั้งบริษัท", icon: Warehouse, perm: "listings.view" },
       { href: "/contacts", label: "ผู้ติดต่อ", icon: Contact, perm: ["contacts.view_all", "contacts.view_own"] },
       { href: "/projects", label: "โครงการ", icon: Landmark, perm: "listings.view" },
-      { href: "/last-match", label: "Last Match", icon: Handshake, perm: ["listings.view", "lastmatch.add"] },
+      // Gated on the VIEW scopes, not listings.view — a closing record is private
+      // performance data, so roles with no scope (Marketing / Admin / HR) don't see the
+      // page at all. See CEO_FEEDBACK_R1.md item 3.
+      {
+        href: "/last-match",
+        label: "Last Match",
+        icon: Handshake,
+        perm: ["lastmatch.view_all", "lastmatch.view_team", "lastmatch.view_own"],
+      },
     ],
   },
   {
@@ -88,6 +97,10 @@ export const NAV: NavGroup[] = [
       { href: "/team", label: "ทีม / บุคคล", icon: UserCog, perm: ["people.manage", "performance.view_team"] },
       // New-sales probation board — rank ladder progress, CEO/Sales Leader oversight.
       { href: "/new-sales", label: "เซลล์ใหม่", icon: Sprout, perm: "performance.view_team" },
+      // Leave. Visible to EVERYONE (leave.request) — a rep sees only their own requests;
+      // leave.manage holders see the whole company plus the approval queue. Requests are
+      // filed from แผนวันนี้, not here.
+      { href: "/leave", label: "วันลา", icon: CalendarOff, perm: ["leave.manage", "leave.request"] },
     ],
   },
   {

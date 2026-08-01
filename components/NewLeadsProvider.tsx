@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { INTAKE_TODAY, type NewLead, type LeadProcess } from "@/lib/leads";
+import { seedTagForLead } from "@/lib/tags";
 
 // Design-first shared store for the lead intake + assignment flow. Holds:
 //  • optimistic NEW leads created via the FAB (not persisted — no Supabase write yet),
@@ -25,6 +26,11 @@ interface Ctx {
   assign: (leadId: string, to: string, by: string, from: string) => void;
   processOf: (leadId: string) => LeadProcess;
   setProcess: (leadId: string, patch: Partial<LeadProcess>, by: string) => void;
+  /** Lead group tag — ONE per lead (CEO feedback R1). Held here rather than in
+   *  LeadsBrowser's local state so the table and the lead DETAIL page can't disagree.
+   *  Wire = `main_6_buyer_crm.tag_id`. */
+  tagOf: (leadId: string) => string | null;
+  setTag: (leadId: string, tagId: string | null) => void;
 }
 
 const NewLeadsContext = React.createContext<Ctx | null>(null);
@@ -34,6 +40,10 @@ export function NewLeadsProvider({ children }: { children: React.ReactNode }) {
   const [assignments, setAssignments] = React.useState<Record<string, string>>({});
   const [history, setHistory] = React.useState<Record<string, AssignEvent[]>>({});
   const [process, setProcessState] = React.useState<Record<string, LeadProcess>>({});
+  // lead_id → tag id (or null). Lazily seeded: a lead absent from this map falls back to
+  // the deterministic demo seed, so the table shows realistic distribution without having
+  // to enumerate every lead up front.
+  const [tags, setTags] = React.useState<Record<string, string | null>>({});
 
   const addLead = React.useCallback((lead: NewLead) => {
     setNewLeads((xs) => [lead, ...xs]);
@@ -64,8 +74,22 @@ export function NewLeadsProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const tagOf = React.useCallback(
+    (leadId: string) => (leadId in tags ? tags[leadId] : seedTagForLead(leadId)),
+    [tags]
+  );
+  /** Single-select: re-picking the current tag clears it. */
+  const setTag = React.useCallback((leadId: string, tagId: string | null) => {
+    setTags((m) => {
+      const cur = leadId in m ? m[leadId] : seedTagForLead(leadId);
+      return { ...m, [leadId]: cur === tagId ? null : tagId };
+    });
+  }, []);
+
   return (
-    <NewLeadsContext.Provider value={{ newLeads, addLead, assignments, historyOf, assign, processOf, setProcess }}>
+    <NewLeadsContext.Provider
+      value={{ newLeads, addLead, assignments, historyOf, assign, processOf, setProcess, tagOf, setTag }}
+    >
       {children}
     </NewLeadsContext.Provider>
   );

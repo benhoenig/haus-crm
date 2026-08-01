@@ -1,14 +1,21 @@
-// SAMPLE DATA + logic — free-form lead tags (design-first). Leads come from LIVE Supabase
-// (main_6_buyer_crm) with NO tags column, so tags are a new concept modeled here and shaped
-// to mirror the eventual wiring:
-//   tags(id, label, tone?)              — the pool (free-form: grows as users create tags)
-//   lead_tags(lead_id, tag_id)          — per-lead assignments (many-to-many)
-// Add/remove is local state in the browser for now (not persisted) — wire to lead_tags.
-// Free-form was the chosen model: any user can create a tag on the fly; the pool is the
-// union of the seed below + everything users add. Colours are derived (stable per label).
+// Lead group tag — a CEO-GOVERNED, SINGLE-SELECT classification (design-first).
+//
+// CEO feedback R1 (2026-07-29): "ให้มี Standard ที่ใช้กันทุกคนไปเลย" + "ติดได้คนเดียว".
+// This replaces the previous free-form, multi-select, user-created tag model. Now:
+//   • ONE tag per lead (a classification, not labels) — so the schema is a single FK
+//     column `main_6_buyer_crm.tag_id`, NOT a join table.
+//   • The list is a controlled vocabulary edited only in Settings → แท็ก Lead
+//     (gated `masterdata.govern`). Sales pick from it; they cannot create.
+//   • Colour is STORED per tag (CEO's choice), not derived from a hash — the point of a
+//     standard is that everyone sees the same tag the same colour.
+//
+// Wire later: `lead_tags_ref(id, label, tone, sort_order, is_active)` +
+// `main_6_buyer_crm.tag_id`. Live edits are in-memory (MasterDataProvider) for now.
 
 const TAG_TONES = ["accent", "blue", "violet", "amber", "green", "neutral"] as const;
 export type TagTone = (typeof TAG_TONES)[number];
+
+export const TAG_TONE_ORDER: readonly TagTone[] = TAG_TONES;
 
 // Tone → chip classes (uses the app's *-bg pill tokens).
 export const TAG_TONE_CLASS: Record<TagTone, string> = {
@@ -20,6 +27,28 @@ export const TAG_TONE_CLASS: Record<TagTone, string> = {
   neutral: "bg-surface-2 text-text-muted",
 };
 
+export interface LeadTag {
+  id: string;
+  label: string;
+  tone: TagTone;
+}
+
+// PLACEHOLDER SEED — the CEO will set the real list in Settings (Ben, 2026-07-29:
+// "เดี๋ยวให้ CEO เค้าเซ็ท เอา seed มาไวๆสัก 3-4 อันก่อนก็ได้").
+//
+// Deliberately a BUYER-TYPE axis, not hot/warm/cold: the lead already carries `potential`
+// (A / B / C) for temperature — the Buyer Focus tab's conditional formatting keys off it —
+// so a second grading field would compete with an existing one. Single-select also requires
+// the values be mutually exclusive, which the old mixed-axis list (ร้อน + นักลงทุน +
+// รอเงินกู้ …) was not.
+export const SEED_LEAD_TAGS: LeadTag[] = [
+  { id: "investor", label: "นักลงทุน", tone: "violet" },
+  { id: "own_stay", label: "ซื้ออยู่เอง", tone: "green" },
+  { id: "rent_out", label: "ปล่อยเช่า", tone: "blue" },
+  { id: "foreigner", label: "ต่างชาติ", tone: "amber" },
+];
+
+/** Stable string hash — used only to seed which lead gets which tag in the demo. */
 function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -29,45 +58,29 @@ function hash(s: string): number {
   return h >>> 0;
 }
 
-/** Stable colour for a tag label (so the same tag is always the same colour). */
-export function tagTone(label: string): TagTone {
-  return TAG_TONES[hash(label) % TAG_TONES.length];
-}
-
-// Initial free-form pool — realistic buyer tags a Bangkok property team would use.
-export const SEED_TAGS = [
-  "ร้อน",
-  "นักลงทุน",
-  "เร่งด่วน",
-  "บอกต่อ",
-  "ต่างชาติ",
-  "VIP",
-  "รอเงินกู้",
-  "อยู่ต่างจังหวัด",
-  "ซื้ออยู่เอง",
-  "เย็น",
-];
-
-/** Deterministic seeded tags for a lead (0–3), so the demo shows tag data on real rows. */
-export function seedTagsForLead(leadId: string): string[] {
+/**
+ * Deterministic seed tag for a lead — exactly one, or null (~20% untagged), so the demo
+ * shows real distribution on live rows. Replaced at wiring by the stored `tag_id`.
+ */
+export function seedTagForLead(leadId: string, tags: LeadTag[] = SEED_LEAD_TAGS): string | null {
+  if (tags.length === 0) return null;
   const h = hash(leadId);
-  const count = h % 10 < 2 ? 0 : (h >> 3) % 3 === 0 ? 1 : ((h >> 5) % 3) + 1; // ~20% untagged
-  const out: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const t = SEED_TAGS[(h >> (i * 4 + 1)) % SEED_TAGS.length];
-    if (!out.includes(t)) out.push(t);
-  }
-  return out;
+  if (h % 10 < 2) return null;
+  return tags[(h >> 3) % tags.length].id;
 }
 
-/** Build the initial per-lead tag map + pool from a set of lead ids. */
-export function seedTagState(leadIds: string[]): { byLead: Record<string, string[]>; pool: string[] } {
-  const byLead: Record<string, string[]> = {};
-  const pool = new Set<string>(SEED_TAGS);
-  for (const id of leadIds) {
-    const tags = seedTagsForLead(id);
-    byLead[id] = tags;
-    tags.forEach((t) => pool.add(t));
-  }
-  return { byLead, pool: [...pool] };
+/** Build the initial lead → tagId map from a set of lead ids. */
+export function seedTagState(
+  leadIds: string[],
+  tags: LeadTag[] = SEED_LEAD_TAGS
+): Record<string, string | null> {
+  const byLead: Record<string, string | null> = {};
+  for (const id of leadIds) byLead[id] = seedTagForLead(id, tags);
+  return byLead;
+}
+
+/** Resolve a stored tag id to its definition. Unknown ids (renamed/removed) return null. */
+export function findTag(tags: LeadTag[], id: string | null | undefined): LeadTag | null {
+  if (!id) return null;
+  return tags.find((t) => t.id === id) ?? null;
 }

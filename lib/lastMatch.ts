@@ -1,7 +1,13 @@
-// SAMPLE DATA — UI-first. Shape mirrors the source table `main_7_last_match`
-// (see DATA_MODEL.md §4): a market-comparables ledger. Zone codes match the live
-// listings (ASK/RP1/CYP/PKS/RM2/BGY…) so the comps panel on listing detail
-// populates. Wire later = swap listMatches/getComparables for Supabase queries.
+// SAMPLE DATA — UI-first. Shape mirrors the LIVE table `main_7_last_match`
+// (see DATA_MODEL.md §4): a ledger of closed deals, one row per match, owned by a
+// `sale_id`. Wire later = swap listMatches for a Supabase query.
+//
+// SCOPING (CEO feedback R1, 2026-07-29): a sale may see ONLY their own matches; a
+// Sales Leader sees their team; CEO/Listing Support see all. Not yet implemented —
+// `listMatches()` still returns everything. See CEO_FEEDBACK_R1.md item 3.
+//
+// The listing-detail ทรัพย์เทียบเคียง (comparables) panel that used to consume this
+// was REMOVED — never a requirement, and it conflicted with the scoping above.
 
 export type CloseType =
   | "ปิดเอง" // we closed it
@@ -47,12 +53,31 @@ export function listMatches(): LastMatch[] {
   return [...SAMPLE].sort((a, b) => (b.date_created ?? "").localeCompare(a.date_created ?? ""));
 }
 
-/** Comparable closes in the same zone — powers the listing-detail comps panel. */
-export function getComparables(zone: string | null | undefined, limit = 4): LastMatch[] {
-  if (!zone) return [];
-  return listMatches()
-    .filter((m) => m.zone === zone)
-    .slice(0, limit);
+// ── Scoping (CEO feedback R1) ────────────────────────────────────────────────────────
+export type MatchScope = "all" | "team" | "own" | "none";
+
+/**
+ * Resolve the viewer's Last Match scope from their effective permissions.
+ * Widest wins, so a player-coach holding both Agent and Sales Leader sees their team.
+ */
+export function matchScope(can: (perm: string) => boolean): MatchScope {
+  if (can("lastmatch.view_all")) return "all";
+  if (can("lastmatch.view_team")) return "team";
+  if (can("lastmatch.view_own")) return "own";
+  return "none";
+}
+
+/**
+ * Filter the ledger to what the viewer may see.
+ * `saleCodes` = the employee codes (S-00x) in scope — null means "no scoping" (see all).
+ *
+ * ⚠️ This is CONVENIENCE, not enforcement. At wiring this must be RLS on
+ * `main_7_last_match` keyed on the authenticated user's employee code; a client-side
+ * filter still ships every row to the browser.
+ */
+export function scopeMatches(matches: LastMatch[], saleCodes: Set<string> | null): LastMatch[] {
+  if (saleCodes === null) return matches;
+  return matches.filter((m) => m.sale_id != null && saleCodes.has(m.sale_id));
 }
 
 const CLOSE_TONE: Record<string, "green" | "neutral" | "amber" | "blue"> = {

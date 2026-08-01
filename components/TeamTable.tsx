@@ -11,6 +11,7 @@ import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { useRbac } from "@/components/RbacProvider";
+import { useActivities } from "@/components/ActivityProvider";
 import {
   listEmployees,
   effortThisMonth,
@@ -23,6 +24,9 @@ import { teamOf, visibleMemberIds } from "@/lib/teams";
 export function TeamTable() {
   const router = useRouter();
   const { roles, users, teams, currentUser, can } = useRbac();
+  // LIVE log — the effort column is one of the surfaces people review activity on, so it
+  // must move when a Daily-Plan task is ticked (same as Targets / เซลล์ใหม่).
+  const { activities } = useActivities();
   const [q, setQ] = React.useState("");
 
   const showMoney = can("financials.view_comp");
@@ -163,7 +167,9 @@ export function TeamTable() {
                       <Pill tone="neutral">พ้นสภาพ</Pill>
                     )}
                   </TD>
-                  <TD className="num text-right text-text-muted">{effortThisMonth(e.nickname)}</TD>
+                  <TD className="num text-right text-text-muted">
+                    {effortThisMonth(e.nickname, undefined, activities)}
+                  </TD>
                   {showMoney && (
                     <TD className="num text-right font-medium">
                       {e.commissionRate != null ? `${(e.commissionRate * 100).toFixed(1)}%` : "—"}

@@ -11,6 +11,8 @@ import {
   type LadderEvaluation,
 } from "@/lib/probation";
 import { listNewSales, type Employee } from "@/lib/team";
+import { useActivities } from "@/components/ActivityProvider";
+import type { Activity } from "@/lib/actions";
 import { TODAY } from "@/lib/momentum";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Stat } from "@/components/ui/Stat";
@@ -29,20 +31,26 @@ interface Row {
   ev: LadderEvaluation;
 }
 
-/** Shared by the board + detail page so both rank identically. */
-export function rankedNewSales(ranks: ReturnType<typeof useProbation>["ranks"]): Row[] {
+/** Shared by the board + detail page so both rank identically.
+ *  `activities` = the LIVE log (ActivityProvider), so completing a Daily-Plan task
+ *  re-ranks immediately — auto-promote depends on reading the same log the plan writes. */
+export function rankedNewSales(
+  ranks: ReturnType<typeof useProbation>["ranks"],
+  activities?: Activity[]
+): Row[] {
   return listNewSales()
     .map((employee) => ({
       employee,
-      ev: evaluateLadder(employee.nickname, ranks, employee.probationStart),
+      ev: evaluateLadder(employee.nickname, ranks, employee.probationStart, activities),
     }))
     .sort((a, b) => ladderScore(b.ev) - ladderScore(a.ev));
 }
 
 export function NewSalesBoard() {
   const { ranks } = useProbation();
+  const { activities } = useActivities();
   const router = useRouter();
-  const rows = rankedNewSales(ranks);
+  const rows = rankedNewSales(ranks, activities);
 
   if (rows.length === 0) {
     return (

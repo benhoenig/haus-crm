@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Phone, MessageSquare, Lock, Handshake } from "lucide-react";
+import { Phone, MessageSquare, Lock, Handshake, CalendarClock } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Pill } from "@/components/ui/Pill";
 import { useRbac } from "@/components/RbacProvider";
 import { listingAgent } from "@/lib/listings";
+import { formatThaiDate } from "@/lib/format";
 
 // Owner contact is PRIVATE. A sale sees the owner's name/phone only for listings they manage,
 // or if they hold `contacts.view_all` (Listing Support / leadership — owners are contacts).
@@ -16,10 +17,19 @@ import { listingAgent } from "@/lib/listings";
 export function ListingOwnerCard({
   ownerName,
   ownerPhone,
+  ownerLine,
+  ownerTalkLastDate,
+  activityComment,
   listingId,
 }: {
   ownerName: string | null;
   ownerPhone: string | null;
+  /** Owner's LINE — `owner_line`, auto-pulled in the source sheet (col W). */
+  ownerLine?: string | null;
+  /** `owner_talk_last_date` (col X) — last time anyone spoke to the owner. */
+  ownerTalkLastDate?: string | null;
+  /** `activity_comment` (col Y) — free-text note from that last owner conversation. */
+  activityComment?: string | null;
   listingId: string;
 }) {
   const { can, currentUser } = useRbac();
@@ -34,20 +44,48 @@ export function ListingOwnerCard({
           <CardTitle>เจ้าของทรัพย์</CardTitle>
         </CardHeader>
         {ownerName ? (
-          <div className="p-4 flex items-center gap-3">
-            <Avatar name={ownerName} tone="crimson" className="h-10 w-10" />
-            <div className="min-w-0">
-              <div className="text-body font-medium truncate">{ownerName}</div>
-              {ownerPhone && (
-                <a
-                  href={`tel:${ownerPhone}`}
-                  className="num text-small text-text-muted hover:text-accent inline-flex items-center gap-1 transition-colors"
-                >
-                  <Phone size={12} strokeWidth={1.75} />
-                  {ownerPhone}
-                </a>
-              )}
+          <div className="p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <Avatar name={ownerName} tone="crimson" className="h-10 w-10" />
+              <div className="min-w-0">
+                <div className="text-body font-medium truncate">{ownerName}</div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  {ownerPhone && (
+                    <a
+                      href={`tel:${ownerPhone}`}
+                      className="num text-small text-text-muted hover:text-accent inline-flex items-center gap-1 transition-colors"
+                    >
+                      <Phone size={12} strokeWidth={1.75} />
+                      {ownerPhone}
+                    </a>
+                  )}
+                  {ownerLine && (
+                    <span className="text-small text-text-muted inline-flex items-center gap-1">
+                      <MessageSquare size={12} strokeWidth={1.75} />
+                      <span className="num">{ownerLine}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
+
+            {/* Last owner contact — the follow-up signal. The source sheet flags stale owner
+                talk with conditional formatting; surfacing the date is the first step. */}
+            {(ownerTalkLastDate || activityComment) && (
+              <div className="border-t border-border pt-2.5 flex flex-col gap-1">
+                {ownerTalkLastDate && (
+                  <div className="flex items-center justify-between gap-2 text-small">
+                    <span className="text-text-subtle inline-flex items-center gap-1">
+                      <CalendarClock size={12} strokeWidth={1.75} /> คุยกับเจ้าของล่าสุด
+                    </span>
+                    <span className="num text-text-muted">{formatThaiDate(ownerTalkLastDate)}</span>
+                  </div>
+                )}
+                {activityComment && (
+                  <p className="text-small text-text-muted whitespace-pre-line">{activityComment}</p>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-4 text-small text-text-subtle">ไม่ระบุเจ้าของ</div>

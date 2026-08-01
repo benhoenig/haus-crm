@@ -60,9 +60,35 @@ Last updated: 2026-07-15 · Status: **design phase (DB not wired)**
 - [ ] **Column sorting** works by meaning (Potential tier, status order) + numeric/text; nulls last
 - [ ] Cover thumbnail — shows real photo when wired, icon fallback otherwise
 - [ ] Row click → correct detail page
-- [ ] Detail: identity header, specs (bed/bath/area), **dual sale/rent price** (correct dimming), owner (name/phone/tel:), status + potential
-- [ ] Detail placeholders replaced/removed once wired: **photo gallery**, **marketing/portal boosts** (DDproperty/Livinginsider/PropertyHub), **interested buyers**, **edit history**
+- [ ] Detail: identity header, specs (bed/bath/area/parking), **dual sale/rent price** (correct dimming), owner (name/phone/tel:/LINE), status + potential
+- [ ] **The app now reads all 55 columns of `v_main_listing`** (was 17 — see `LISTING_COLUMNS`
+      in [lib/queries.ts](./lib/queries.ts)). Live on detail: ข้อมูลทรัพย์ (land area, unit no.,
+      floor, building, direction, view, position, condition, ใน/นอกโครงการ, road/soi, remark),
+      ประวัติราคา (old→new + % change, update/price remarks), a **real** การตลาด card (portal
+      links + posted count + ป้าย/วิดีโอ/Reels/Hometour/แผนที่ chips), and sidebar listing type /
+      created date / managing agent / Owner Focus.
+- [ ] 🔴 **15 sheet columns are still MISSING from the view** — extend it, then surface them:
+      Hook · ส่วนกลาง · อายุ · Photo Album Link · Link · Last Match Price/Remark/Type ·
+      New Photo · Facebook Ad (doc) · **DD Boost · LV Boost · FB Repost · Marketing Report**.
+      The boost/report group is the marketing-ops block the CEO asked for.
+  - **ส่วนกลาง holds three different units** in the source (`45 บาท` = rate per ตร.ว./month ·
+    `44,000` = per year · `เดือนละ 2,024` = per month). **Decision: store the RATE** —
+    `common_fee_rate` + `common_fee_unit` (`per_wa_month` | `per_sqm_month`), back-convert the
+    3 outliers at import, keep the original string in `common_fee_note`. Derive the displayed
+    total from the matching area column.
+  - **อายุ → store `built_year`, NOT age.** Age decays (today's "15 ปี" is wrong next year and
+    nobody updates it); year built never changes. Back-computing from age + `date_created` is
+    ±1 yr on the ~40 existing rows — accepted, one-time. **Intake should ask ปีที่สร้าง.**
+- [ ] Detail placeholders still to replace: **photo gallery** (fake images), **interested
+      buyers**, **edit history**. (marketing/portal is no longer a placeholder.)
+- [ ] **`แก้ไข` (listing edit)** — sectioned form over the full column set; save is a **stub**
+      (the app reads a read-only view). Wire to an update on the base listing table. Gate the
+      marketing block's *edit* to `listings.marketing` — DD/LV Boost, FB Repost and Marketing
+      Report are not a sale's job, though everyone with `listings.view` still sees them.
 - [ ] **Owner contact is PRIVATE** ([ListingOwnerCard](./components/ListingOwnerCard.tsx)): shown only to `contacts.view_all` **or** the listing's managing agent; everyone else gets the managing agent's contact (Co-Agent card). Wire to real owner-contact RLS + the real creating-agent (not the `lib/listings.ts` seed).
+- [ ] **Owner follow-up signal**: `owner_talk_last_date` + `activity_comment` now render on the
+      owner card. The source sheet flags stale owner talk with conditional formatting — consider
+      surfacing that as an overdue badge once wired.
 
 ### Company listings (`/company-listings`) — Co-Agent inventory  ⚠️ *design-first*
 - [ ] **Company-wide listing view** ([CompanyListings](./components/CompanyListings.tsx), under คลังข้อมูล, gated `listings.view`): all listings + managing-agent avatar/contact + per-agent count strip + search / status filter / agent filter / column sort. Own component — NOT `/listings` ([ListingsBrowser](./components/ListingsBrowser.tsx)).
@@ -81,7 +107,23 @@ Last updated: 2026-07-15 · Status: **design phase (DB not wired)**
 - [ ] Detail placeholders replaced/removed once wired: **activity timeline** (+ logging), **edit history**
 - [ ] **Lead edit** (`LeadEditSheet`, gated `leads.edit`) — the header `แก้ไข` opens an edit sheet (name/phone/LINE/type/stage/status/potential/budget). Save is a **stub** (`console.log`); wire to a Supabase update on `main_6_buyer_crm` + optimistic reflect (detail is server-rendered, so edits currently don't persist on reload). Removed the old `นัดชม`/`ติดต่อ` buttons; header now shows **phone (tel:) + LINE** (line.me link) — `line_id` added to `getLead`.
 - [ ] **Column order** — drag-and-drop reorder via the `คอลัมน์` modal, persisted to **localStorage** (`haus.leads.colOrder`). Fine as-is; optionally move to a per-user DB preference at wiring so it follows the login across devices.
-- [ ] **Tags** (`lib/tags.ts`, free-form) — currently **sample + local state only** (not persisted). Wire to a `tags(id, label)` pool + `lead_tags(lead_id, tag_id)` join (many-to-many). Add/remove/create must persist; keep the free-form model (users create tags on the fly). Colour is derived from the label (`tagTone`) — no colour column needed. Search also matches tags; **group-by-tag** lists a lead under each of its tags + an "ไม่มีแท็ก" group. Seeded per-lead assignments here are placeholder — real assignments come from `lead_tags`.
+- [ ] **Lead group tag** (`lib/tags.ts`) — ⚠️ **model changed 2026-07-29 (CEO feedback R1).**
+      No longer free-form or multi-select. Now a **CEO-governed vocabulary, ONE tag per lead**
+      ("ให้มี Standard ที่ใช้กันทุกคนไปเลย" + "ติดได้คนเดียว"). Currently in-memory
+      (`MasterDataProvider.leadTags`) — not persisted.
+  - Wire to **`lead_tags_ref(id, label, tone, sort_order, is_active)`** + a **single FK column
+    `main_6_buyer_crm.tag_id`**. ❗ **No join table** — single-select.
+  - **Colour is STORED** (`tone`), chosen by the CEO in ตั้งค่า → แท็ก Lead. It is *not* derived
+    from the label any more — a company standard must look identical for everyone.
+  - Sales **cannot create tags** — the picker offers only the governed list (+ "เอาแท็กออก").
+    Managing the list is gated `masterdata.govern` (CEO; delegable via the roles editor).
+  - **group-by-tag buckets are disjoint** now (one tag per lead), so group counts sum to the
+    row total. Order follows the CEO's list order, not row count.
+  - A tag deleted in Settings resolves to `null` in the table (`findTag`) — don't resurrect
+    phantom chips from stale ids; prefer `is_active = false` over hard delete at wiring.
+  - Seed list (นักลงทุน / ซื้ออยู่เอง / ปล่อยเช่า / ต่างชาติ) is a **placeholder** — the CEO
+    sets the real one. Keep it a *buyer-type* axis: `potential` (A/B/C) already grades temperature.
+  - [ ] **Show the tag on lead detail** (`/leads/[id]`) — currently table-only.
 
 ### Contacts (`/contacts`)  ⚠️ *currently sample data*
 - [ ] Backed by a real contacts table (see must-fix above)
@@ -101,22 +143,95 @@ Last updated: 2026-07-15 · Status: **design phase (DB not wired)**
 - [ ] `แก้ไข` / “ทรัพย์ในโครงการ” filtered link wired
 
 ### Last Match (`/last-match`)  ⚠️ *sample data (`lib/lastMatch.ts` → `main_7_last_match`)*
-- [ ] Wire to `main_7_last_match`; swap `listMatches`/`getComparables`
+- [ ] Wire to `main_7_last_match`; swap `listMatches`
 - [ ] Search + close-type filter chips; **column sorting** (date/project/zone/price/close/agent)
-- [ ] Comps panel on **listing detail** filters by zone correctly
 - [ ] Size (sq_wa/sq_m) + price format across mixed source formats
+- [ ] 🔴 **ENFORCE THE SCOPE IN RLS** (CEO feedback R1, 2026-07-29). A sale may see only their
+      own closes; a Sales Leader their team; CEO / Listing Support all. Built client-side in
+      `LastMatchBrowser` via `matchScope()` + `scopeMatches()` — **convenience only, every row
+      still reaches the browser.** Real enforcement = a policy on `main_7_last_match` keyed on
+      the session user's employee code (`sale_id` stores `S-00x`). Marketing/Admin/HR hold no
+      scope at all, so the page is hidden from their nav.
+- [ ] Own-scoped viewers correctly lose the **เซลส์** column + its sort
+- [ ] ~~Comps panel on listing detail~~ — **REMOVED 2026-07-29.** The ทรัพย์เทียบเคียง panel was
+      never a requirement (introduced alongside the Last Match sample data) and conflicted with
+      the scoping above. `getComparables()` deleted. If pricing support is wanted later, design
+      it with the CEO — the privacy-safe shape is company-wide prices with the closer's name
+      stripped.
 
-### Actions / KPI (`/performance`)  ⚠️ *sample data + stubbed logging (`lib/actions.ts`)*
-- [ ] **Unified activity table** wired; FAB `LogActivity` actually writes a row
+### วันลา / Leave (`/leave` + ขอลา in แผนวันนี้)  ⚠️ *in-memory (`LeaveProvider`, seeded from the real HR Sheet rows)*
+- [ ] Wire `leave_requests(id, employee_id, submitted_at, start_date, end_date, type, remark,
+      status, decided_by, decided_at)`; swap `listLeave()`
+- [ ] 🔴 **Enforce the approval gate in RLS** — only `leave.manage` may write `status` /
+      `decided_by`. Client-side buttons are convenience only.
+- [ ] Scope rows: `leave.manage` sees everyone, everyone else **only their own**. Currently a
+      client filter in `LeaveBoard`.
+- [ ] ⚠️ **The source sheet has NO approval column** — the CRM adds one. Historical rows are
+      seeded `approved` with empty `decided_by`; decide whether to backfill or leave blank.
+- [ ] Import must-fixes: **reversed date range** (Golf, sheet row 15 — end before start;
+      seeded as 9–20 Oct, confirm with HR), **exact duplicate rows 21/22**, **free-text leave
+      types** incl. a trailing-space `"ลาป่วย "`. Add a `start_date <= end_date` constraint and
+      dedupe on (employee, start, end, type).
+- [ ] Name → employee id: the sheet stores only a nickname; map to ids at import.
+- [x] ~~Confirm whether Sales Leaders approve their team~~ — **DECIDED (Ben, 2026-08-01):
+      NO.** Approval stays **CEO + HR only** (`leave.manage`), matching how it works today.
+      Sales Leaders file leave like everyone else. Don't widen this without asking.
+- [ ] 🔴 **Leave quota ships with PLACEHOLDER numbers — get the real ones from HR.**
+      Built (`ตั้งค่า → โควตาวันลา`, gated `leave.manage`) with per-type annual allowances,
+      a used/quota bar on `/leave`, and an over-quota warning list for HR.
+      The source sheet has **no allowance column**, so the seeded values are Thai statutory
+      MINIMUMS (`ลาพักร้อน 6 · ลากิจ 3 · ลาป่วย 30`), not company policy — the Settings screen
+      says so in a banner. Blank = untracked (ลาคลอด, ลาเพื่อทำหมัน are not from an annual pool).
+  - **Evidence the placeholders are wrong:** against a 6-day annual quota, **5 of 8 staff are
+    already over** in 2026 (Golf 17, Pup 10). The company clearly grants more than the
+    statutory minimum. Do not ship these numbers to users.
+  - **Ask HR:** days per type · does unused **carry over** · what does a **first-year**
+    employee get (full or pro-rated)?
+  - Modelled **per leave type**, deliberately — ลาพักร้อน / ลาป่วย / ลากิจ have different
+    statutory limits, so a single pooled "days remaining" would be wrong for all of them.
+  - **Company-wide only** — no per-employee override. Real policies usually scale with
+    seniority. Wire = `leave_allowances(type, days_per_year)` + an optional per-employee
+    override table.
+  - **Pending leave deliberately does NOT consume quota** (only approved does), so a request
+    awaiting a decision can't silently eat someone's balance. Keep that rule at wiring.
+  - No accrual, no carry-over, no pro-rating — add only if HR says they use them.
+  - ⚠️ Verify the statutory figures against **current** Thai labour law at wiring; they were
+    written from memory and employment law changes.
+- [ ] Leave does not interact with KPI targets or the probation ladder (a day off doesn't
+      reduce anyone's target). Confirm that's intended.
+
+### Activity log  ⚠️ *in-memory (`ActivityProvider`, seeded from `lib/actions.ts`)*
+> **The +บันทึก FAB was DELETED (CEO feedback R1, 2026-07-29).** Activity is now recorded by
+> **completing a task in แผนวันนี้** — that is the only write path. `components/LogActivity.tsx`
+> no longer exists.
+
+- [ ] **Unified activity table** wired; `ActivityProvider.logActivity` becomes a real insert
 - [ ] Action taxonomy canonicalized (23 source values → groups; Show/Showing, Reels dupes collapsed)
-- [ ] FAB tags **lead OR listing**; tagged = count-1 timeline touch, untagged = KPI tally
-- [ ] Same rows appear in listing/lead **detail timelines** AND the KPI aggregate
+- [ ] A task carrying an `activityType` writes on tick; **un-ticking deletes the row**. The
+      activity id derives from the task id (`taskActivityId`) so re-ticking is idempotent —
+      preserve that on the server or completions will double-count.
+- [ ] The activity is dated to the **task's** date, not today (back-dated plan items log correctly)
+- [ ] **Count N + remark** captured by `TaskCompleteSheet` — this is what replaced the FAB's
+      tally path. Entity-attached tasks are one event (no count); unattached ones tally.
+- [ ] 🔴 **Same rows must appear in listing/lead detail timelines.** They currently do NOT:
+      those pages are **server** components reading the static sample via
+      `getActivitiesForListing` / `getActivitiesForLead`, while the live log is client-side.
+      Wiring the real table fixes both ends — until then a just-logged activity shows in
+      แผนวันนี้ / targets / เซลล์ใหม่ but not on the entity timeline.
+- [ ] All four consumers read the same table: KPI targets (`targetCurrent`), the new-sales
+      ladder (`tallyAction` / `evaluateLadder`), entity timelines, the leaderboard
 
 ### แผนวันนี้ / Targets — Momentum (`/today`, `/performance`)  ⚠️ *sample data (`lib/momentum.ts`)*
 - [ ] Wire `tasks` + `targets` tables (per agent, per month); key to the session user (not fixed "Stone")
 - [ ] Daily plan: date nav, completion ring, add/toggle/reorder persist; task type + linked target + entity
 - [ ] **Quick-add smart time parse**: typing a leading time in the quick-add field (e.g. `10.00 นั่งสมาธิ` or `10:00 นั่งสมาธิ`) auto-sets the task's `startTime` and strips it from the title. Quick-add only (the advanced sheet already has a time field). Support `HH.MM`/`HH:MM`, optional; leave title as-is if no time prefix.
-- [ ] **Auto-bridge**: activity-source targets compute from the real activities table; manual/pipeline +1 persists
+- [ ] **Quick Add chips** ([lib/quickAdd.ts](./lib/quickAdd.ts)) — per-user presets above the
+      add-task field; one tap appends an **unticked** task (it's a plan; the tick is what logs).
+      Persisted to **localStorage per agent** → wire to
+      `user_quick_actions(user_id, label, task_type, activity_type, sort_order)`. Presets reuse
+      `ACTION_GROUPS` + `TASK_TYPES` — no new vocabulary. A chip with an action logs on
+      completion; one without is a plain to-do.
+- [ ] **Auto-bridge**: activity-source targets compute from the real activities table; manual/pipeline +1 persists. Ticking a plan task is now the ONLY activity write path — see the Activity log section.
 - [ ] Targets: official (manager-set) vs stretch (agent) write paths; ties to KPI-target templates
 - [ ] **Official = the 4 sales-process KPIs** (Owner Talk, Sourcing, Survey, Buyer Follow) — `source="kpi"`, aggregated from the **`summary_kpi`** tab, **not** the activity log. Owner Talk + Buyer Follow are **`kind="ratio"`** (numerator `manualCurrent` ÷ **`denominator`**, goal 100%): read both from `*_done` / `*_total` columns. Sourcing/Survey are counts (`*_done` / `*_target`). `activityType` on a KPI target is informational, not the value source.
 - [ ] **Weekly-focus rhythm**: each KPI's `focusWeekStart..focusWeekEnd` (+ `focusLabel`) highlights the KPI to push that week (Owner Talk=wk1, Sourcing/Survey=wk2–3, Buyer Follow=wk4). `currentWeekOfMonth()` is derived from the **stubbed `TODAY`** — swap to a real clock at wiring.
@@ -163,7 +278,7 @@ Last updated: 2026-07-15 · Status: **design phase (DB not wired)**
 - [ ] Unstaffed roles (Admin, HR) are seeded but hold **0 users** — confirm 0 users really means 0 access once RLS is live, and delete any role the org never staffs. (**Sales Leader is now staffed** — Pup & Game, the seeded team leads.)
 - [ ] **Sales teams** ([lib/teams.ts](./lib/teams.ts), Settings ▸ ทีม gated `teams.manage` — [TeamsManager](./components/TeamsManager.tsx)): create team + leader + monthly `revenueGoal` + members (one team per person). Currently **in-memory in the org store** (`RbacProvider`) + a 2-team seed. Wire: a `teams` table + membership (`employees.team_id` or a `team_members` join). Verified: CEO manages teams; a leader (Pup) sees only their team on `/team`; the roster shows a team column + scope banner.
 - [ ] **Team scoping is applied to the `/team` roster only so far.** The helper `visibleMemberIds(teams, viewerId, isOrgWide)` ([lib/teams.ts](./lib/teams.ts)) is the reusable rule (org-wide → all; team leader → own team; else self). ⚠️ **Still to scope with the same helper:** the **dashboard leaderboard**, **/performance**, and the **Lead Database** (team-filter leads by the assigned sale's team), plus surfacing team **`revenueGoal`** as a team-level target on the dashboard. `isOrgWide` is currently `roles.manage || people.manage` (CEO/HR) — confirm that's the intended "sees all teams" set at wiring.
-- [ ] ⚠️ **Most of the matrix is declarative, not enforced.** Only a handful of gates actually change the UI today — `contacts.view_all` ([ContactsBrowser](./components/ContactsBrowser.tsx)), `activity.log` ([LogActivity](./components/LogActivity.tsx)), `financials.view_comp` + `people.manage` ([TeamTable](./components/TeamTable.tsx)), `financials.view_comp` + `people.view_sensitive` + `people.manage` ([EmployeeRecord](./components/EmployeeRecord.tsx)), and the per-section gating inside `/settings` ([SettingsView](./components/SettingsView.tsx)). Every other permission only filters the **sidebar nav** ([lib/nav.ts](./lib/nav.ts)) — the page itself renders fully if reached by URL. Specifically: `leads.view_own` does **not** scope `/leads`, `performance.view_team` does **not** gate the dashboard leaderboard, and `listings.edit` / `projects.edit` / `targets.set` gate nothing. **Wiring must enforce every gate at the server/RLS level** — the matrix is the intent, the app does not yet honour it.
+- [ ] ⚠️ **Most of the matrix is declarative, not enforced.** Only a handful of gates actually change the UI today — `contacts.view_all` ([ContactsBrowser](./components/ContactsBrowser.tsx)), the three `lastmatch.view_*` scopes ([LastMatchBrowser](./components/LastMatchBrowser.tsx)), `financials.view_comp` + `people.manage` ([TeamTable](./components/TeamTable.tsx)), `financials.view_comp` + `people.view_sensitive` + `people.manage` ([EmployeeRecord](./components/EmployeeRecord.tsx)), and the per-section gating inside `/settings` ([SettingsView](./components/SettingsView.tsx)). Every other permission only filters the **sidebar nav** ([lib/nav.ts](./lib/nav.ts)) — the page itself renders fully if reached by URL. Specifically: `leads.view_own` does **not** scope `/leads`, `performance.view_team` does **not** gate the dashboard leaderboard, and `listings.edit` / `projects.edit` / `targets.set` gate nothing. **Wiring must enforce every gate at the server/RLS level** — the matrix is the intent, the app does not yet honour it. (`activity.log` no longer gates a FAB — the logger was removed; it now marks who records activity by completing plan tasks.)
 - [ ] **Master data is split into two gates** ([lib/rbac.ts](./lib/rbac.ts)): `masterdata.govern` = structural/leadership data (zones, action types, KPI templates — CEO-only) · `reference.manage` = the light lead/listing vocabularies (property type, marketing channel, contact-by, gender, nationality — **granted to Listing Support** + CEO). `/settings` shows only the sections the viewer can govern (verified: CEO 6 sections, Listing Support 2, Agent none). Enforce both gates server-side.
 - [ ] **Zones** (`lib/zones.ts` → `zone`): wire table; `+ เพิ่มโซน` / row edit write (`masterdata.govern`)
 - [ ] **Delete guards with impact warnings**: every settings delete (enum values, KPI templates, teams, roles) opens the [ConfirmDelete](./components/ui/ConfirmDelete.tsx) popover naming the value + its **usage impact** — property types count **live listings** (computed in [app/settings/page.tsx](./app/settings/page.tsx)), action types count the activity log, teams state member count, roles state user count; Marketing Channel / Contact By / เพศ / สัญชาติ show "ยังไม่นับการใช้งาน" until their columns exist (**wire the real counts then**). ⚠️ UI guard only — at wiring, **block deleting an in-use value server-side** (FK/reference check → archive/disable instead of hard delete).

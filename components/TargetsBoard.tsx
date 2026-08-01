@@ -14,6 +14,8 @@ import {
   type Target,
 } from "@/lib/momentum";
 import { GoalDetailSheet, type GoalDraft } from "@/components/GoalDetailSheet";
+import { useActivities } from "@/components/ActivityProvider";
+import type { Activity } from "@/lib/actions";
 import { cn } from "@/lib/cn";
 
 export function TargetsBoard({ agent, title = "เป้าหมายเดือนนี้" }: { agent: string; title?: string }) {
@@ -22,6 +24,8 @@ export function TargetsBoard({ agent, title = "เป้าหมายเดื
   const [addOpen, setAddOpen] = React.useState(false);
   const nextId = React.useRef(0);
   const week = currentWeekOfMonth();
+  // The live log — activity-source targets recompute as Daily-Plan tasks are ticked.
+  const { activities } = useActivities();
 
   const bump = (id: string) =>
     setTargets((ts) =>
@@ -60,6 +64,7 @@ export function TargetsBoard({ agent, title = "เป้าหมายเดื
           targets={official}
           onBump={bump}
           week={week}
+          activities={activities}
           note={`โฟกัสสัปดาห์ที่ ${week}`}
         />
         <Group
@@ -67,6 +72,7 @@ export function TargetsBoard({ agent, title = "เป้าหมายเดื
           targets={stretch}
           onBump={bump}
           week={week}
+          activities={activities}
           action={
             <Button variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
               <Plus size={13} strokeWidth={2} /> เพิ่ม
@@ -87,6 +93,7 @@ function Group({
   week,
   action,
   note,
+  activities,
 }: {
   label: string;
   targets: Target[];
@@ -94,6 +101,7 @@ function Group({
   week: number;
   action?: React.ReactNode;
   note?: string;
+  activities: Activity[];
 }) {
   if (targets.length === 0 && !action) return null;
   return (
@@ -107,15 +115,27 @@ function Group({
       </div>
       <div className="flex flex-col gap-3">
         {targets.map((t) => (
-          <TargetRow key={t.id} target={t} week={week} onBump={() => onBump(t.id)} />
+          <TargetRow key={t.id} target={t} week={week} onBump={() => onBump(t.id)} activities={activities} />
         ))}
       </div>
     </div>
   );
 }
 
-function TargetRow({ target: t, week, onBump }: { target: Target; week: number; onBump: () => void }) {
-  const { current, denom, pct } = targetProgress(t);
+function TargetRow({
+  target: t,
+  week,
+  onBump,
+  activities,
+}: {
+  target: Target;
+  week: number;
+  onBump: () => void;
+  /** LIVE log (ActivityProvider) — so an activity-source target moves the moment a
+   *  Daily-Plan task is ticked, instead of reading the frozen sample array. */
+  activities: Activity[];
+}) {
+  const { current, denom, pct } = targetProgress(t, activities);
   const auto = isAutoTarget(t);
   const focus = isFocusWeek(t, week);
   const fmt = (n: number) => (t.kind === "baht" ? formatBaht(n) : String(n));

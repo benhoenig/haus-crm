@@ -8,7 +8,7 @@
 //   • financials    — salary + commission rate      → gate `financials.view_comp`
 //   • pii/legal     — ID card, bank, payslip, docs   → gate `people.view_sensitive`
 
-import { listActivities } from "@/lib/actions";
+import { listActivities, type Activity } from "@/lib/actions";
 import { listZones } from "@/lib/zones";
 
 export type EmployeeStatus = "active" | "terminated";
@@ -304,9 +304,16 @@ export function employeeZoneNames(e: Employee): string[] {
     .filter((n): n is string => !!n);
 }
 
-/** Activity count this month for an employee — the "effort" figure, from the log. */
-export function effortThisMonth(nickname: string, month = "2026-07"): number {
-  return listActivities()
+/** Activity count this month for an employee — the "effort" figure, from the log.
+ *  `activities` = the LIVE log (ActivityProvider); defaults to the static sample for
+ *  non-React callers. Pass the live array so ticking a Daily-Plan task moves this number —
+ *  ทีม is one of the surfaces people review activity on. */
+export function effortThisMonth(
+  nickname: string,
+  month = "2026-07",
+  activities: Activity[] = listActivities()
+): number {
+  return activities
     .filter((a) => a.created_by === nickname && a.date.startsWith(month))
     .reduce((sum, a) => sum + a.count, 0);
 }

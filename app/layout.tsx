@@ -1,17 +1,15 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
-import { MobileNavProvider } from "@/components/MobileNav";
-import { RbacProvider } from "@/components/RbacProvider";
-import { MasterDataProvider } from "@/components/MasterDataProvider";
-import { ChecklistProvider } from "@/components/ChecklistProvider";
-import { CopyTemplatesProvider } from "@/components/CopyTemplatesProvider";
-import { ProbationProvider } from "@/components/ProbationProvider";
-import { NotificationsProvider } from "@/components/NotificationsProvider";
-import { NewLeadsProvider } from "@/components/NewLeadsProvider";
-import { LogActivity } from "@/components/LogActivity";
-import { LeadIntakeFab } from "@/components/LeadIntakeFab";
+
+// ROOT layout — html/body/fonts only, deliberately NO app chrome and NO providers.
+//
+// The signed-in application lives in the `(app)` route group, whose layout carries the
+// Sidebar, the FAB and every in-memory store. `/login` sits outside that group, so a
+// signed-out visitor gets none of it: no nav (which would leak the whole surface map) and
+// no app state instantiated at all.
+//
+// Route groups don't affect URLs — `app/(app)/leads` is still `/leads`.
 
 const plexSansThai = IBM_Plex_Sans_Thai({
   subsets: ["thai", "latin"],
@@ -35,33 +33,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={`${plexSansThai.variable} ${plexMono.variable}`}>
-      <body>
-        <RbacProvider>
-          {/* Inside RbacProvider — feeds/leads are scoped to the current viewer. */}
-          <MasterDataProvider>
-          <ChecklistProvider>
-          <CopyTemplatesProvider>
-          <ProbationProvider>
-          <NotificationsProvider>
-            <NewLeadsProvider>
-              <MobileNavProvider>
-                <div className="grid grid-cols-1 lg:grid-cols-[228px_1fr] min-h-screen">
-                  <Sidebar />
-                  <main className="min-w-0 flex flex-col">{children}</main>
-                </div>
-                {/* Quick activity logger — gated to activity.log. */}
-                <LogActivity />
-                {/* Lead intake FAB — gated to leads.create (admin/back-office). */}
-                <LeadIntakeFab />
-              </MobileNavProvider>
-            </NewLeadsProvider>
-          </NotificationsProvider>
-          </ProbationProvider>
-          </CopyTemplatesProvider>
-          </ChecklistProvider>
-          </MasterDataProvider>
-        </RbacProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

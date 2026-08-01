@@ -14,7 +14,9 @@ import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
 import { GradeChip } from "@/components/ui/GradeChip";
 import { STAGES, stageMeta } from "@/lib/pipeline";
-import { seedTagState, tagTone, TAG_TONE_CLASS } from "@/lib/tags";
+import { findTag, TAG_TONE_CLASS, type LeadTag } from "@/lib/tags";
+import { useMasterData } from "@/components/MasterDataProvider";
+import { useNewLeads } from "@/components/NewLeadsProvider";
 import { formatBaht, formatThaiDate } from "@/lib/format";
 import { leadStatusDot } from "@/lib/status";
 import { compareValues, orderIndex } from "@/lib/sort";
@@ -73,12 +75,13 @@ function move<T>(arr: T[], from: number, to: number): T[] {
 }
 
 // ── Tag chip ──────────────────────────────────────────────────────────────────
-function TagChip({ label, onRemove }: { label: string; onRemove?: () => void }) {
+// Colour comes from the tag's STORED tone (CEO-chosen in Settings), not a hash.
+function TagChip({ tag, onRemove }: { tag: LeadTag; onRemove?: () => void }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label font-medium whitespace-nowrap", TAG_TONE_CLASS[tagTone(label)])}>
-      {label}
+    <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label font-medium whitespace-nowrap", TAG_TONE_CLASS[tag.tone])}>
+      {tag.label}
       {onRemove && (
-        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} aria-label={`ลบแท็ก ${label}`} className="opacity-60 hover:opacity-100">
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} aria-label={`ลบแท็ก ${tag.label}`} className="opacity-60 hover:opacity-100">
           <X size={11} strokeWidth={2.5} />
         </button>
       )}
@@ -114,27 +117,16 @@ export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
     }
   }, []);
 
-  // Tag state (design-first, local) — seeded from lead ids.
-  const seed = React.useMemo(() => seedTagState(crm.map((c) => c.lead_id)), [crm]);
-  const [tagsByLead, setTagsByLead] = React.useState<Record<string, string[]>>(seed.byLead);
-  const [pool, setPool] = React.useState<string[]>(seed.pool);
+  // Lead group tag — ONE per lead (CEO: "ติดได้คนเดียว"), chosen from the CEO-governed list
+  // in Settings → แท็ก Lead. Sales cannot create tags. Assignments live in the shared
+  // per-lead store so this table and the lead DETAIL page always agree.
+  const { leadTags } = useMasterData();
+  const { tagOf: tagIdOf, setTag } = useNewLeads();
   const [openLead, setOpenLead] = React.useState<{ id: string; rect: DOMRect } | null>(null);
 
-  const tagsOf = (id: string) => tagsByLead[id] ?? [];
-  const toggleTag = (id: string, tag: string) =>
-    setTagsByLead((m) => {
-      const cur = m[id] ?? [];
-      return { ...m, [id]: cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag] };
-    });
-  const createTag = (id: string, raw: string) => {
-    const tag = raw.trim();
-    if (!tag) return;
-    setPool((p) => (p.includes(tag) ? p : [...p, tag]));
-    setTagsByLead((m) => {
-      const cur = m[id] ?? [];
-      return cur.includes(tag) ? m : { ...m, [id]: [...cur, tag] };
-    });
-  };
+  /** The lead's tag, resolved against the LIVE governed list. A tag deleted in Settings
+   *  resolves to null here, so the table never shows a tag that no longer exists. */
+  const tagOf = (id: string): LeadTag | null => findTag(leadTags, tagIdOf(id));
 
   const stageOptions = [
     { key: "all", label: "ทั้งหมด", count: crm.length },
@@ -152,26 +144,33 @@ export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
       (c) =>
         !query ||
         [c.lead_name, c.phone, c.lead_id].some((v) => v?.toLowerCase().includes(query)) ||
-        tagsOf(c.lead_id).some((t) => t.toLowerCase().includes(query))
+        (tagOf(c.lead_id)?.label.toLowerCase().includes(query) ?? false)
     );
 
   const sortFn = SORT_VALUE[sort.key];
   const rows = sortFn ? [...filtered].sort((a, b) => compareValues(sortFn(a), sortFn(b), sort.dir)) : filtered;
 
+  // Single-select makes these buckets DISJOINT — every lead lands in exactly one group, so
+  // the group counts now sum to the row count. (Under the old multi-tag model a lead was
+  // duplicated into every group it carried and the totals never added up.)
   const groups = React.useMemo(() => {
     if (!groupBy) return null;
     const byTag = new Map<string, CrmRow[]>();
     const untagged: CrmRow[] = [];
     for (const c of rows) {
-      const ts = tagsOf(c.lead_id);
-      if (ts.length === 0) untagged.push(c);
-      else ts.forEach((t) => byTag.set(t, [...(byTag.get(t) ?? []), c]));
+      const t = tagOf(c.lead_id);
+      if (!t) untagged.push(c);
+      else byTag.set(t.id, [...(byTag.get(t.id) ?? []), c]);
     }
-    const out = [...byTag.entries()].map(([tag, rs]) => ({ tag, rows: rs })).sort((a, b) => b.rows.length - a.rows.length);
-    if (untagged.length) out.push({ tag: "", rows: untagged });
+    // Order follows the CEO's list order in Settings, not row count — a standard vocabulary
+    // should read the same way everywhere.
+    const out: { tag: LeadTag | null; rows: CrmRow[] }[] = leadTags
+      .filter((t) => byTag.has(t.id))
+      .map((t) => ({ tag: t, rows: byTag.get(t.id)! }));
+    if (untagged.length) out.push({ tag: null, rows: untagged });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupBy, rows, tagsByLead]);
+  }, [groupBy, rows, tagIdOf, leadTags]);
 
   // ── header + cell renderers keyed by column id ──────────────────────────────
   const headerFor = (colId: ColId) => {
@@ -217,21 +216,28 @@ export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
         return <TD key={colId}><StatusBadge color={leadStatusDot(c.lead_status)}>{c.lead_status}</StatusBadge></TD>;
       case "type":
         return <TD key={colId}><Pill className="whitespace-nowrap">{c.lead_type ?? "—"}</Pill></TD>;
-      case "tags":
+      case "tags": {
+        // One tag max — so the cell is a single chip (tap to change) or an empty picker
+        // button, never a growing chip list.
+        const tag = tagOf(c.lead_id);
         return (
           <TD key={colId} onClick={(e) => e.stopPropagation()} className="cursor-default">
-            <div className="flex items-center gap-1 flex-wrap max-w-[240px]">
-              {tagsOf(c.lead_id).map((t) => <TagChip key={t} label={t} onRemove={() => toggleTag(c.lead_id, t)} />)}
-              <button
-                onClick={(e) => setOpenLead({ id: c.lead_id, rect: e.currentTarget.getBoundingClientRect() })}
-                aria-label="เพิ่มแท็ก"
-                className="size-5 grid place-items-center rounded border border-dashed border-border-strong text-text-subtle hover:text-accent hover:border-accent transition-colors shrink-0"
-              >
-                <Plus size={12} strokeWidth={2} />
-              </button>
-            </div>
+            <button
+              onClick={(e) => setOpenLead({ id: c.lead_id, rect: e.currentTarget.getBoundingClientRect() })}
+              aria-label={tag ? `เปลี่ยนแท็ก (${tag.label})` : "เลือกแท็ก"}
+              className="inline-flex items-center gap-1 rounded transition-colors"
+            >
+              {tag ? (
+                <TagChip tag={tag} />
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded border border-dashed border-border-strong px-1.5 py-0.5 text-label text-text-subtle hover:text-accent hover:border-accent transition-colors">
+                  <Plus size={11} strokeWidth={2} /> แท็ก
+                </span>
+              )}
+            </button>
           </TD>
         );
+      }
       case "sale":
         return (
           <TD key={colId}>
@@ -292,16 +298,16 @@ export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
             <TBody>
               {groups
                 ? groups.map((g) => (
-                    <React.Fragment key={g.tag || "__untagged"}>
+                    <React.Fragment key={g.tag?.id ?? "__untagged"}>
                       <TR className="bg-surface-2/60">
                         <TD colSpan={order.length} className="py-2">
                           <span className="inline-flex items-center gap-2">
-                            {g.tag ? <TagChip label={g.tag} /> : <span className="text-small text-text-subtle">ไม่มีแท็ก</span>}
+                            {g.tag ? <TagChip tag={g.tag} /> : <span className="text-small text-text-subtle">ไม่มีแท็ก</span>}
                             <span className="num text-label text-text-subtle">({g.rows.length})</span>
                           </span>
                         </TD>
                       </TR>
-                      {g.rows.map((c) => renderRow(c, `${g.tag}-`))}
+                      {g.rows.map((c) => renderRow(c, `${g.tag?.id ?? "none"}-`))}
                     </React.Fragment>
                   ))
                 : rows.map((c) => renderRow(c))}
@@ -313,10 +319,9 @@ export function LeadsBrowser({ crm }: { crm: CrmRow[] }) {
       {openLead && (
         <TagPopover
           rect={openLead.rect}
-          pool={pool}
-          selected={tagsOf(openLead.id)}
-          onToggle={(t) => toggleTag(openLead.id, t)}
-          onCreate={(t) => createTag(openLead.id, t)}
+          tags={leadTags}
+          selected={tagIdOf(openLead.id)}
+          onPick={(t) => setTag(openLead.id, t)}
           onClose={() => setOpenLead(null)}
         />
       )}
@@ -464,26 +469,21 @@ function ColumnsModal({
 }
 
 // ── Tag picker popover ────────────────────────────────────────────────────────
+// A PICKER, not an editor: the list is the CEO-governed vocabulary and there is no
+// create-new path. Single-select — choosing a tag replaces whatever was there and closes.
 function TagPopover({
   rect,
-  pool,
+  tags,
   selected,
-  onToggle,
-  onCreate,
+  onPick,
   onClose,
 }: {
   rect: DOMRect;
-  pool: string[];
-  selected: string[];
-  onToggle: (tag: string) => void;
-  onCreate: (tag: string) => void;
+  tags: LeadTag[];
+  selected: string | null;
+  onPick: (tagId: string | null) => void;
   onClose: () => void;
 }) {
-  const [q, setQ] = React.useState("");
-  const query = q.trim();
-  const filtered = pool.filter((t) => t.toLowerCase().includes(query.toLowerCase())).sort();
-  const canCreate = query.length > 0 && !pool.some((t) => t.toLowerCase() === query.toLowerCase());
-
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -503,37 +503,42 @@ function TagPopover({
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="fixed z-50 w-60 rounded-lg border border-border bg-surface shadow-pop p-2 flex flex-col gap-1.5" style={{ left, top }} onClick={(e) => e.stopPropagation()}>
-        <Input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && canCreate) {
-              onCreate(query);
-              setQ("");
-            }
-          }}
-          placeholder="ค้นหา / สร้างแท็ก…"
-          className="h-8"
-        />
+      <div className="fixed z-50 w-60 rounded-lg border border-border bg-surface shadow-pop p-2 flex flex-col gap-0.5" style={{ left, top }} onClick={(e) => e.stopPropagation()}>
+        <div className="px-2 pt-1 pb-1.5 text-label text-text-subtle">เลือกได้ 1 แท็ก</div>
         <div className="max-h-56 overflow-y-auto flex flex-col gap-0.5">
-          {filtered.map((t) => {
-            const on = selected.includes(t);
+          {tags.map((t) => {
+            const on = selected === t.id;
             return (
-              <button key={t} onClick={() => onToggle(t)} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-small hover:bg-surface-hover transition-colors text-left">
-                <TagChip label={t} />
+              <button
+                key={t.id}
+                onClick={() => {
+                  onPick(t.id);
+                  onClose();
+                }}
+                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-small hover:bg-surface-hover transition-colors text-left"
+              >
+                <TagChip tag={t} />
                 {on && <Check size={14} strokeWidth={2.5} className="text-accent shrink-0" />}
               </button>
             );
           })}
-          {canCreate && (
-            <button onClick={() => { onCreate(query); setQ(""); }} className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-small text-accent hover:bg-accent-wash transition-colors text-left">
-              <Plus size={13} strokeWidth={2} /> สร้างแท็ก “{query}”
-            </button>
+          {tags.length === 0 && (
+            <div className="px-2 py-3 text-center text-label text-text-subtle">
+              ยังไม่มีแท็ก — ตั้งค่าที่ ตั้งค่า → แท็ก Lead
+            </div>
           )}
-          {filtered.length === 0 && !canCreate && <div className="px-2 py-3 text-center text-label text-text-subtle">ไม่พบแท็ก</div>}
         </div>
+        {selected && (
+          <button
+            onClick={() => {
+              onPick(null);
+              onClose();
+            }}
+            className="mt-1 border-t border-border pt-2 px-2 pb-1 text-left text-small text-text-muted hover:text-accent transition-colors"
+          >
+            เอาแท็กออก
+          </button>
+        )}
       </div>
     </>
   );

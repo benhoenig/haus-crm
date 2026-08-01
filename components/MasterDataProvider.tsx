@@ -3,6 +3,7 @@
 import * as React from "react";
 import { LEAD_SOURCES, CONTACT_BYS, GENDERS, NATIONALITIES } from "@/lib/leads";
 import { PROPERTY_TYPES } from "@/lib/masterdata";
+import { SEED_LEAD_TAGS, type LeadTag } from "@/lib/tags";
 
 // Shared LIVE store for the governed reference vocabularies (property type, marketing
 // channel, contact-by, gender, nationality) — the single source both the Settings managers
@@ -35,6 +36,10 @@ interface MasterDataValue {
   setGenders: React.Dispatch<React.SetStateAction<RefItem[]>>;
   nationalities: RefItem[];
   setNationalities: React.Dispatch<React.SetStateAction<RefItem[]>>;
+  /** Lead group tag — CEO-governed, SINGLE-select per lead. Carries a stored tone,
+   *  so it is a LeadTag list rather than a plain RefItem list. */
+  leadTags: LeadTag[];
+  setLeadTags: React.Dispatch<React.SetStateAction<LeadTag[]>>;
 }
 
 const Ctx = React.createContext<MasterDataValue | null>(null);
@@ -55,6 +60,7 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
   const [nationalities, setNationalities] = React.useState<RefItem[]>(() =>
     NATIONALITIES.map((n) => ({ id: n, label: n }))
   );
+  const [leadTags, setLeadTags] = React.useState<LeadTag[]>(() => [...SEED_LEAD_TAGS]);
 
   const value: MasterDataValue = {
     propertyTypes,
@@ -67,6 +73,8 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
     setGenders,
     nationalities,
     setNationalities,
+    leadTags,
+    setLeadTags,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

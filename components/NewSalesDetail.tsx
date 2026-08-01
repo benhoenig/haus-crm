@@ -5,7 +5,7 @@ import { Medal, Trophy, Check, CalendarDays, History } from "lucide-react";
 import { useProbation } from "@/components/ProbationProvider";
 import { rankedNewSales, daysBetween } from "@/components/NewSalesBoard";
 import { currentRankName, WINDOW_LABEL } from "@/lib/probation";
-import { listActivities } from "@/lib/actions";
+import { useActivities } from "@/components/ActivityProvider";
 import { TODAY } from "@/lib/momentum";
 import { formatThaiDate } from "@/lib/format";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -19,7 +19,10 @@ import { cn } from "@/lib/cn";
 // agent's recent logged activities. Same live derivation as the board (ProbationProvider).
 export function NewSalesDetail({ employeeId }: { employeeId: string }) {
   const { ranks } = useProbation();
-  const rows = rankedNewSales(ranks);
+  // LIVE log — the ladder and the activity list below must both reflect work logged from
+  // the Daily Plan, not the frozen sample.
+  const { activities } = useActivities();
+  const rows = rankedNewSales(ranks, activities);
   const idx = rows.findIndex((r) => r.employee.id === employeeId);
 
   if (idx === -1) {
@@ -34,7 +37,9 @@ export function NewSalesDetail({ employeeId }: { employeeId: string }) {
 
   const { employee: e, ev } = rows[idx];
   const days = daysBetween(e.probationStart, TODAY);
-  const acts = listActivities().filter((a) => a.created_by === e.nickname);
+  const acts = activities
+    .filter((a) => a.created_by === e.nickname)
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="space-y-4">

@@ -12,23 +12,36 @@ import {
   History,
   Landmark,
   ChevronRight,
-  Handshake,
+  Car,
+  Ruler,
+  TrendingDown,
+  ArrowRight,
+  ExternalLink,
+  Check,
 } from "lucide-react";
 import { Topbar } from "@/components/Topbar";
-import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/Dot";
 import { Pill } from "@/components/ui/Pill";
 import { ListingOwnerCard } from "@/components/ListingOwnerCard";
+import { ListingEditButton } from "@/components/ListingEditSheet";
 import { ExclusiveAgreementCard } from "@/components/ExclusiveAgreementCard";
 import { ListingChecklist } from "@/components/ListingChecklist";
 import { ListingCopyButton } from "@/components/ListingCopyButton";
 import { getListing } from "@/lib/queries";
 import { listingGallery } from "@/lib/placeholderImages"; // PREVIEW ONLY — fake listing photos
 import { getProjectByName } from "@/lib/projects";
-import { getComparables, closeTypeTone, sizeSummary } from "@/lib/lastMatch";
 import { getActivitiesForListing } from "@/lib/actions";
-import { formatBaht, formatRent, formatNumber, formatThaiDate, daysOnMarketLabel, dealType } from "@/lib/format";
+import { listingAgentNickname } from "@/lib/listings";
+import {
+  formatBaht,
+  formatRent,
+  formatNumber,
+  formatThaiDate,
+  formatLandArea,
+  daysOnMarketLabel,
+  dealType,
+} from "@/lib/format";
 import { listingStatusDot, potentialTone } from "@/lib/status";
 import { cn } from "@/lib/cn";
 
@@ -52,8 +65,23 @@ export default async function ListingDetailPage({
 
   const deal = dealType(listing.asking_price, listing.rental_price);
   const project = getProjectByName(listing.project_name_eng);
-  const comps = getComparables(listing.zone);
   const activities = getActivitiesForListing(listing.listing_id);
+
+  // Price move (Listings cols J → K). Only meaningful when BOTH sides are present.
+  const hasPriceMove = listing.old_price != null && listing.new_price != null;
+  const priceDelta =
+    hasPriceMove && listing.old_price
+      ? ((listing.new_price! - listing.old_price) / listing.old_price) * 100
+      : null;
+
+  // Portal listings. `propertyhub_link` is the view's name for the sheet's "Facebook Link"
+  // column, which holds PropertyHub URLs in practice (see DATA_MODEL.md §1).
+  const PORTALS = [
+    { name: "DDproperty", url: listing.ddproperty_link, date: null as string | null },
+    { name: "Livinginsider", url: listing.livinginsider_link, date: listing.livinginsider_date },
+    { name: "PropertyHub", url: listing.propertyhub_link, date: null as string | null },
+  ];
+  const postedCount = PORTALS.filter((p) => p.url).length;
 
   return (
     <>
@@ -87,9 +115,7 @@ export default async function ListingDetailPage({
             <StatusBadge color={listingStatusDot(listing.listing_status)}>
               {listing.listing_status ?? "—"}
             </StatusBadge>
-            <Button variant="secondary" size="sm" disabled>
-              แก้ไข
-            </Button>
+            <ListingEditButton listing={listing} />
           </div>
         </div>
 
@@ -124,15 +150,49 @@ export default async function ListingDetailPage({
 
             {/* Spec strip */}
             <Card>
-              <CardContent className="flex items-center gap-6">
+              <CardContent className="flex items-center gap-6 flex-wrap">
                 <Spec icon={Bed} label="นอน" value={listing.bed != null ? String(listing.bed) : "—"} />
                 <Spec icon={Bath} label="น้ำ" value={listing.bath != null ? String(listing.bath) : "—"} />
                 <Spec
                   icon={Maximize}
-                  label="พื้นที่"
+                  label="พื้นที่ใช้สอย"
                   value={listing.area_sqm ? `${formatNumber(listing.area_sqm)} ตร.ม.` : "—"}
                 />
+                <Spec
+                  icon={Car}
+                  label="จอดรถ"
+                  value={listing.parking != null ? `${listing.parking} คัน` : "—"}
+                />
               </CardContent>
+            </Card>
+
+            {/* Full property spec — the rest of the Listings sheet's spec block. Rows with no
+                value are dropped entirely rather than rendered as dashes. */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Ruler size={16} strokeWidth={1.75} className="text-text-muted" />
+                  ข้อมูลทรัพย์
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-small">
+                <Field label="ที่ดิน" value={formatLandArea(listing.area_rai, listing.area_ngan, listing.area_wa)} />
+                <Field label="บ้านเลขที่ / ยูนิต" value={listing.unit_no} />
+                <Field label="ชั้น" value={listing.floor} />
+                <Field label="อาคาร" value={listing.building} />
+                <Field label="ทิศ" value={listing.direction} />
+                <Field label="วิว" value={listing.view_type} />
+                <Field label="ตำแหน่ง" value={listing.unit_position} />
+                <Field label="สภาพห้อง" value={listing.unit_condition} />
+                <Field label="ใน/นอกโครงการ" value={listing.in_out_project} />
+                <Field label="ถนน / ซอย" value={listing.road_soi} />
+              </CardContent>
+              {listing.remark && (
+                <div className="px-4 pb-4">
+                  <div className="text-label text-text-subtle mb-1">หมายเหตุ</div>
+                  <p className="text-small text-text-muted whitespace-pre-line">{listing.remark}</p>
+                </div>
+              )}
             </Card>
 
             {/* Price cards — the absent deal type is dimmed */}
@@ -169,43 +229,43 @@ export default async function ListingDetailPage({
               </Card>
             </div>
 
-            {/* Comparable closes nearby (Last Match) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Handshake size={16} strokeWidth={1.75} className="text-text-muted" />
-                  ทรัพย์เทียบเคียง
-                </CardTitle>
-                <Link href="/last-match" className="text-small text-accent hover:underline">
-                  ดูทั้งหมด
-                </Link>
-              </CardHeader>
-              {comps.length > 0 ? (
-                <div className="divide-y divide-border">
-                  {comps.map((m) => (
-                    <div key={m.last_match_id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-body font-medium truncate">{m.project_name ?? "—"}</div>
-                        <div className="text-label text-text-subtle num">
-                          {sizeSummary(m)}
-                          {m.date_created && <span className="ml-2">{formatThaiDate(m.date_created)}</span>}
-                        </div>
-                      </div>
-                      {m.close_type && (
-                        <Pill tone={closeTypeTone(m.close_type)}>{m.close_type}</Pill>
+            {/* Price history — Listings cols J/K/L + AR. Rendered only when there is
+                something to show, so untouched listings don't grow an empty card. */}
+            {(hasPriceMove || listing.price_remark) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingDown size={16} strokeWidth={1.75} className="text-text-muted" />
+                    ประวัติราคา
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 text-small">
+                  {hasPriceMove && (
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="num text-text-subtle line-through">
+                        {formatBaht(listing.old_price)}
+                      </span>
+                      <ArrowRight size={14} strokeWidth={1.75} className="text-text-subtle shrink-0" />
+                      <span className="num text-body font-semibold">{formatBaht(listing.new_price)}</span>
+                      {priceDelta != null && (
+                        <Pill tone={priceDelta < 0 ? "green" : "amber"}>
+                          {priceDelta < 0 ? "ลด" : "เพิ่ม"} {Math.abs(priceDelta).toFixed(1)}%
+                        </Pill>
                       )}
-                      <div className="num text-body font-semibold whitespace-nowrap w-20 text-right">
-                        {formatBaht(m.last_match_price)}
-                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <CardContent>
-                  <Empty icon={Handshake}>ยังไม่มีทรัพย์เทียบเคียงในโซนนี้</Empty>
+                  )}
+                  {listing.update_remark && (
+                    <p className="text-text-muted whitespace-pre-line">{listing.update_remark}</p>
+                  )}
+                  {listing.price_remark && (
+                    <div className="border-t border-border pt-2.5">
+                      <div className="text-label text-text-subtle mb-0.5">เงื่อนไขราคา</div>
+                      <p className="text-text-muted whitespace-pre-line">{listing.price_remark}</p>
+                    </div>
+                  )}
                 </CardContent>
-              )}
-            </Card>
+              </Card>
+            )}
 
             {/* Activity timeline — the entity view of the unified activity log */}
             <Card>
@@ -283,9 +343,27 @@ export default async function ListingDetailPage({
                     {listing.zone && <span className="num text-text-subtle">{listing.zone}</span>}
                   </span>
                 </Row>
+                <Row label="ประเภทประกาศ">
+                  <span>{listing.listing_type ?? "—"}</span>
+                </Row>
                 <Row label="ลงประกาศ">
                   <span className="num">{daysOnMarketLabel(listing.days_on_market)}</span>
                 </Row>
+                <Row label="วันที่สร้าง">
+                  <span className="num">{formatThaiDate(listing.date_created)}</span>
+                </Row>
+                {/* created_by is exposed by the view but NULL in the live rows — fall back to
+                    the seeded managing agent until the import backfills it. */}
+                <Row label="ผู้ดูแล">
+                  <span className="num">
+                    {listing.created_by ?? listingAgentNickname(listing.listing_id) ?? "—"}
+                  </span>
+                </Row>
+                {listing.owner_focus && (
+                  <Row label="Owner Focus">
+                    <Pill tone="amber">ติดตามเจ้าของ</Pill>
+                  </Row>
+                )}
               </CardContent>
             </Card>
 
@@ -344,25 +422,54 @@ export default async function ListingDetailPage({
             <ListingOwnerCard
               ownerName={listing.owner_name}
               ownerPhone={listing.owner_phone}
+              ownerLine={listing.owner_line}
+              ownerTalkLastDate={listing.owner_talk_last_date}
+              activityComment={listing.activity_comment}
               listingId={listing.listing_id}
             />
 
-            {/* Marketing */}
+            {/* Marketing — REAL data now (portal links + media + sign/VDO flags all come
+                from v_main_listing). The DD/LV Boost, FB Repost and Marketing Report fields
+                are still missing from the view; see CEO_FEEDBACK_R1.md §2.3. */}
             <Card>
               <CardHeader>
                 <CardTitle>การตลาด</CardTitle>
-                <Pill>เร็ว ๆ นี้</Pill>
+                <span className="num text-label text-text-subtle">
+                  {postedCount}/{PORTALS.length} พอร์ทัล
+                </span>
               </CardHeader>
               <CardContent className="flex flex-col gap-2.5 text-small">
                 {/* Ad-copy generator (คำประกาศโฆษณา) — live template fill */}
                 <ListingCopyButton listing={listing} />
-                <div className="border-t border-border pt-2.5 flex flex-col gap-2.5">
-                  {["DDproperty", "Livinginsider", "PropertyHub"].map((n) => (
-                    <div key={n} className="flex items-center justify-between text-text-subtle">
-                      <span>{n}</span>
-                      <span>—</span>
+
+                <div className="border-t border-border pt-2.5 flex flex-col gap-2">
+                  {PORTALS.map(({ name, url, date }) => (
+                    <div key={name} className="flex items-center justify-between gap-2">
+                      <span className={cn(url ? "text-text-muted" : "text-text-subtle")}>{name}</span>
+                      {url ? (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-accent hover:underline shrink-0"
+                        >
+                          {date ? <span className="num text-label">{formatThaiDate(date)}</span> : "ดูประกาศ"}
+                          <ExternalLink size={11} strokeWidth={1.75} />
+                        </a>
+                      ) : (
+                        <span className="text-text-subtle shrink-0">ยังไม่ลง</span>
+                      )}
                     </div>
                   ))}
+                </div>
+
+                {/* Media assets + physical marketing */}
+                <div className="border-t border-border pt-2.5 flex flex-wrap gap-1.5">
+                  <MarketingFlag on={listing.sign} label="ป้าย" />
+                  <MarketingFlag on={listing.vdo} label="วิดีโอ" />
+                  <MediaLink href={listing.shorts_reels_link} label="Reels" />
+                  <MediaLink href={listing.hometour_link} label="Hometour" />
+                  <MediaLink href={listing.link_location} label="แผนที่" />
                 </div>
               </CardContent>
             </Card>
@@ -406,6 +513,56 @@ function Spec({
         <div className="text-label text-text-subtle">{label}</div>
       </div>
     </div>
+  );
+}
+
+/** Spec row that renders nothing when the value is missing — keeps sparse listings clean. */
+function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
+  if (value == null || value === "") return null;
+  return (
+    <div className="min-w-0">
+      <div className="text-label text-text-subtle">{label}</div>
+      <div className="text-small truncate">{value}</div>
+    </div>
+  );
+}
+
+/** Boolean marketing flag (ป้าย / วิดีโอ) — green when done, muted when not. */
+function MarketingFlag({ on, label }: { on: boolean | null; label: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md px-2 py-1 text-label border",
+        on
+          ? "bg-green-bg text-green border-green/30"
+          : "text-text-subtle border-border"
+      )}
+    >
+      {on && <Check size={11} strokeWidth={2.25} />}
+      {label}
+    </span>
+  );
+}
+
+/** Media asset chip — a link when present, a dimmed chip when not. */
+function MediaLink({ href, label }: { href: string | null; label: string }) {
+  if (!href) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-label border border-border text-text-subtle">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-label border border-accent/30 bg-accent-wash text-accent hover:bg-accent-wash/70 transition-colors"
+    >
+      {label}
+      <ExternalLink size={10} strokeWidth={2} />
+    </a>
   );
 }
 

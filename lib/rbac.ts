@@ -53,12 +53,24 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: "listings.marketing", label: "การตลาด / ลงพอร์ทัล" },
       { key: "projects.edit", label: "แก้ไขโครงการ" },
       { key: "lastmatch.add", label: "เพิ่ม Last Match" },
+      // CEO feedback R1: a sale may see ONLY their own closes ("Last Match ของตัวเองเท่านั้น"),
+      // a Sales Leader sees their whole team. Three scopes, grant exactly one per role —
+      // same convention as leads.view_all / leads.view_own. Widest wins if several are held.
+      { key: "lastmatch.view_all", label: "ดู Last Match ทั้งบริษัท" },
+      { key: "lastmatch.view_team", label: "ดู Last Match ของทีม", hint: "หัวหน้าทีมเห็นของลูกทีมทุกคน" },
+      { key: "lastmatch.view_own", label: "ดู Last Match ของตัวเอง", hint: "เซลส์เห็นเฉพาะดีลที่ตัวเองปิด" },
     ],
   },
   {
     key: "activity",
     label: "กิจกรรม",
-    perms: [{ key: "activity.log", label: "บันทึกกิจกรรม (ปุ่มลอย)", hint: "สำหรับคนที่ทำงานขาย" }],
+    perms: [
+      {
+        key: "activity.log",
+        label: "บันทึกกิจกรรม",
+        hint: "ติ๊กงานในแผนวันนี้แล้วระบบบันทึกกิจกรรมให้ — สำหรับคนที่ทำงานขาย",
+      },
+    ],
   },
   {
     key: "website",
@@ -112,6 +124,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         key: "teams.manage",
         label: "จัดการทีมขาย",
         hint: "สร้างทีม กำหนดหัวหน้า และมอบหมายเซลเข้าทีม",
+      },
+      // Leave is two-sided: everyone files, a small group decides. Granted to EVERY role —
+      // taking leave is not a privilege.
+      { key: "leave.request", label: "ขอลา", hint: "ยื่นใบลาจากหน้าแผนวันนี้" },
+      {
+        key: "leave.manage",
+        label: "อนุมัติ / จัดการวันลา",
+        hint: "ดูใบลาทุกคนและอนุมัติ — CEO / HR",
       },
     ],
   },
@@ -187,11 +207,19 @@ export interface OrgUser {
 // reproduce in RLS — the client-side `can()` is convenience, not enforcement.
 // Rules encoded here:
 //   • view_all beats view_own — grant only one per surface.
+//   • Last Match is 3-scoped (CEO feedback R1, 2026-07-29): own (Agent) → team (Sales
+//     Leader) → all (CEO, Listing Support). A closing record is private performance data;
+//     Marketing/Admin/HR get NO scope at all, which hides the page for them entirely.
 //   • Agents are own-scoped (matches the created_by/assigned_to contact privacy already
 //     built) but DO see team performance — the leaderboard is intentionally public.
 //   • Compensation + PII are CEO/HR only, and are two SEPARATE gates.
-//   • activity.log (the +บันทึก FAB) goes to roles that DO logged field actions — sales,
-//     marketing (Reels/content), sales leader, CEO. NOT Listing Support (portal-only) or Admin.
+//   • activity.log goes to roles that DO logged field actions. Every action in
+//     ACTION_GROUPS is a SALES action — including ถ่ายรูป and Reels, which the sale performs,
+//     not Marketing (confirmed by Ben, 2026-07-29). So: Agent, Sales Leader, CEO only.
+//     NOT Marketing (this used to be granted on the false premise that they shoot the
+//     Reels — there is no action in the catalog they would ever log), NOT Listing Support
+//     (portal-only), NOT Admin. Logging now happens by completing a Daily-Plan task; the
+//     +บันทึก FAB was removed in CEO feedback R1.
 //   • Master data is split into two gates: reference.manage = the light lead/listing
 //     vocabularies (property type, marketing channel, contact-by, gender, nationality),
 //     delegated to Listing Support; masterdata.govern = the structural/leadership data
@@ -220,9 +248,11 @@ export const SEED_ROLES: Role[] = [
       "listings.create", // Sales sources & creates listings (the ทรัพย์ page + เพิ่มทรัพย์)
       "listings.edit",
       "lastmatch.add",
+      "lastmatch.view_own", // CEO R1: own closes only — never another sale's record
       "activity.log",
       "performance.view_own",
       "targets.stretch",
+      "leave.request",
     ],
   },
   {
@@ -240,6 +270,8 @@ export const SEED_ROLES: Role[] = [
       "listings.marketing",
       "projects.edit",
       "lastmatch.add",
+      // Back-office: coordinates across every agent's inventory, so not own-scoped.
+      "lastmatch.view_all",
       // Governs the lead/listing reference vocabularies they live in (property type, marketing
       // channel, contact-by, gender, nationality) — NOT zones / activity / KPI (masterdata.govern).
       "reference.manage",
@@ -251,6 +283,7 @@ export const SEED_ROLES: Role[] = [
       // the logged field actions (Owner Visit / Show / Call…), so no +บันทึก activity FAB.
       "performance.view_own",
       "targets.stretch",
+      "leave.request",
     ],
   },
   {
@@ -266,9 +299,12 @@ export const SEED_ROLES: Role[] = [
       "website.manage",
       // Owns the ad-copy templates (คำประกาศโฆษณา) — copywriting is Marketing's job.
       "copy.manage",
-      "activity.log",
+      // NO activity.log: every action in the catalog is a sales action (the sale shoots the
+      // Reels, not Marketing), so there is nothing here for this role to log. Marketing
+      // still gets a Daily Plan via performance.view_own — it's just a plain to-do list.
       "performance.view_own",
       "targets.stretch",
+      "leave.request",
     ],
   },
   {
@@ -286,11 +322,14 @@ export const SEED_ROLES: Role[] = [
       "listings.create", // Sales Leaders still sell — they source & create listings too
       "listings.edit",
       "lastmatch.add",
+      "lastmatch.view_team", // CEO R1: "หัวหน้าทีมเห็นของทั้งทีม"
+
       "activity.log",
       "performance.view_own",
       "performance.view_team",
       "targets.set",
       "targets.stretch",
+      "leave.request",
     ],
   },
   {
@@ -305,6 +344,7 @@ export const SEED_ROLES: Role[] = [
       "contacts.view_all",
       "contacts.manage",
       "listings.view",
+      "leave.request",
     ],
   },
   {
@@ -317,6 +357,8 @@ export const SEED_ROLES: Role[] = [
       "financials.view_comp",
       "financials.payroll",
       "performance.view_team",
+      "leave.request",
+      "leave.manage", // HR owns the approval queue
     ],
   },
 ];

@@ -9,7 +9,7 @@
 // criteria are met; the current rank is the longest leading run of achieved ranks
 // (the ladder is sequential). Clearing the final rank = passed probation.
 
-import { listActivities } from "@/lib/actions";
+import { listActivities, type Activity } from "@/lib/actions";
 import { TODAY } from "@/lib/momentum";
 
 /** Counting window for one criterion — "have both" per Ben:
@@ -71,10 +71,13 @@ export function tallyAction(
   nickname: string,
   activityType: string,
   window: CriterionWindow,
-  since?: string
+  since?: string,
+  /** LIVE log (ActivityProvider). Defaults to the static sample for non-React callers —
+   *  pass the live array so ticking a Daily-Plan task re-ranks immediately. */
+  activities: Activity[] = listActivities()
 ): number {
   const month = TODAY.slice(0, 7);
-  return listActivities()
+  return activities
     .filter((a) => a.created_by === nickname && a.action === activityType)
     .filter((a) => (window === "monthly" ? a.date.startsWith(month) : !since || a.date >= since))
     .reduce((sum, a) => sum + a.count, 0);
@@ -108,11 +111,12 @@ export interface LadderEvaluation {
 export function evaluateLadder(
   nickname: string,
   ladder: SalesRank[],
-  probationStart?: string
+  probationStart?: string,
+  activities?: Activity[]
 ): LadderEvaluation {
   const ranks: RankProgress[] = ladder.map((rank) => {
     const criteria = rank.criteria.map((c) => {
-      const have = tallyAction(nickname, c.activityType, c.window, probationStart);
+      const have = tallyAction(nickname, c.activityType, c.window, probationStart, activities);
       return { ...c, have, met: have >= c.target };
     });
     const pct = criteria.length

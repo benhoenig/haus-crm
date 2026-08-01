@@ -14,13 +14,30 @@ import {
   Clock,
   Repeat,
   StickyNote,
+  Pencil,
+  Trash2,
+  X,
+  CalendarOff,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { RingProgress } from "@/components/ui/RingProgress";
 import { Input } from "@/components/ui/Input";
 import { TaskDetailSheet, type TaskDraft } from "@/components/TaskDetailSheet";
+import { TaskCompleteSheet } from "@/components/TaskCompleteSheet";
 import { MiniCalendar } from "@/components/PlanCalendar";
+import { useActivities, taskActivityId } from "@/components/ActivityProvider";
+import { useRbac } from "@/components/RbacProvider";
+import { useLeave } from "@/components/LeaveProvider";
+import { LeaveRequestSheet } from "@/components/LeaveRequestSheet";
+import { coversDate } from "@/lib/leave";
+import { ACTION_GROUPS } from "@/lib/actions";
+import {
+  DEFAULT_QUICK_ACTIONS,
+  loadQuickActions,
+  saveQuickActions,
+  type QuickAction,
+} from "@/lib/quickAdd";
 import { formatThaiDate } from "@/lib/format";
 import {
   listTasks,
@@ -56,6 +73,25 @@ export function DailyPlan({ agent }: { agent: string }) {
     task: null,
   });
   const [calOpen, setCalOpen] = React.useState(false);
+  const [completing, setCompleting] = React.useState<Task | null>(null);
+  const { logActivity, removeActivity } = useActivities();
+
+  // Leave — requested from here, shown as a banner on any day it covers.
+  const { can, currentUser } = useRbac();
+  const { requests } = useLeave();
+  const [leaveOpen, setLeaveOpen] = React.useState(false);
+  const myLeaveToday = requests.find(
+    (r) => r.employeeId === currentUser.id && coversDate(r, date)
+  );
+
+  // Quick Add presets — per-user, loaded after mount so the server render matches.
+  const [quick, setQuick] = React.useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
+  const [quickEdit, setQuickEdit] = React.useState(false);
+  React.useEffect(() => setQuick(loadQuickActions(agent)), [agent]);
+  const applyQuick = (next: QuickAction[]) => {
+    setQuick(next);
+    saveQuickActions(agent, next);
+  };
 
   const dayTasks = tasks
     .filter((t) => t.date === date)
@@ -63,8 +99,43 @@ export function DailyPlan({ agent }: { agent: string }) {
   const doneCount = dayTasks.filter((t) => t.done).length;
   const pct = dayTasks.length ? Math.round((doneCount / dayTasks.length) * 100) : 0;
 
-  const toggle = (id: string) =>
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  // ── Task → activity bridge ────────────────────────────────────────────────
+  // Completing a task carrying an `activityType` WRITES an activity row. Since the
+  // +บันทึก FAB was removed (CEO feedback R1), this is the only path by which activity
+  // reaches the KPI targets, the new-sales rank ladder, and the entity timelines.
+  //
+  // Tick a linked task → confirm sheet (count + remark) → log. Untick → remove the row, so
+  // a mis-tick doesn't leave a phantom activity behind. Unlinked tasks just tick.
+  const toggle = (id: string) => {
+    const t = tasks.find((x) => x.id === id);
+    if (!t) return;
+    if (!t.done && t.activityType) {
+      setCompleting(t);
+      return;
+    }
+    if (t.done && t.activityType) removeActivity(taskActivityId(t.id));
+    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, done: !x.done } : x)));
+  };
+
+  const confirmComplete = (count: number, remark: string) => {
+    const t = completing;
+    if (!t) return;
+    logActivity({
+      id: taskActivityId(t.id),
+      created_by: agent,
+      action: t.activityType!,
+      // The TASK's date, not today — ticking a back-dated plan item logs it on that day.
+      date: t.date,
+      count,
+      remark: remark || null,
+      related_lead_id: t.relatedLeadId ?? null,
+      related_lead_name: t.relatedLeadName ?? null,
+      related_listing_id: t.relatedListingId ?? null,
+      related_listing_name: t.relatedListingName ?? null,
+    });
+    setTasks((ts) => ts.map((x) => (x.id === t.id ? { ...x, done: true } : x)));
+    setCompleting(null);
+  };
 
   const cycleType = (id: string) =>
     setTasks((ts) =>
@@ -91,6 +162,25 @@ export function DailyPlan({ agent }: { agent: string }) {
 
   const cycleDraftType = () =>
     setDraftType((t) => TASK_TYPE_ORDER[(TASK_TYPE_ORDER.indexOf(t) + 1) % TASK_TYPE_ORDER.length]);
+
+  /** Quick Add — appends an UNTICKED task. It's a plan, not a log: the tick is what
+   *  records the activity. Time / notes / linked entity get filled in afterwards. */
+  const addQuick = (qa: QuickAction) => {
+    const order = Math.max(-1, ...dayTasks.map((t) => t.order)) + 1;
+    setTasks((ts) => [
+      ...ts,
+      {
+        id: `qa_${qa.id}_${ts.length}_${order}`,
+        agent,
+        date,
+        title: qa.label,
+        done: false,
+        order,
+        type: qa.type,
+        activityType: qa.activityType,
+      },
+    ]);
+  };
 
   // Advanced add / edit via the detail sheet.
   const applyDraft = (d: TaskDraft) => {
@@ -179,6 +269,20 @@ export function DailyPlan({ agent }: { agent: string }) {
       </div>
 
       <CardContent className="p-0">
+        {/* On-leave banner — if the viewer has leave covering this date, say so before they
+            wonder why the day is empty. Pending leave is flagged as not-yet-approved. */}
+        {myLeaveToday && (
+          <div className="px-4 py-2.5 border-b border-border bg-amber-bg/40 flex items-center gap-2 text-small">
+            <CalendarOff size={14} strokeWidth={1.75} className="text-amber shrink-0" />
+            <span className="text-text">
+              คุณลา{myLeaveToday.type}วันนี้
+            </span>
+            <Pill tone={myLeaveToday.status === "approved" ? "green" : "amber"}>
+              {myLeaveToday.status === "approved" ? "อนุมัติแล้ว" : "รออนุมัติ"}
+            </Pill>
+          </div>
+        )}
+
         <div className="px-4 py-2.5 text-small text-text-muted border-b border-border">
           {dayTasks.length ? `เสร็จ ${doneCount} จาก ${dayTasks.length}` : "ยังไม่มีแผนสำหรับวันนี้"}
         </div>
@@ -197,8 +301,42 @@ export function DailyPlan({ agent }: { agent: string }) {
           ))}
         </ul>
 
+        {/* Quick Add — one tap drops a common task into this day. Per-user (แก้ไข to
+            customise). Replaces the deleted +บันทึก FAB as the fast path. */}
+        <div className="flex items-center gap-1.5 px-3 pt-3 flex-wrap">
+          {quick.map((qa) => (
+            <button
+              key={qa.id}
+              onClick={() => addQuick(qa)}
+              className="inline-flex items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-small text-text-muted hover:border-accent hover:text-accent transition-colors"
+            >
+              <Plus size={12} strokeWidth={2} />
+              {qa.label}
+            </button>
+          ))}
+          <button
+            onClick={() => setQuickEdit(true)}
+            aria-label="ตั้งค่าปุ่มลัด"
+            title="ตั้งค่าปุ่มลัด"
+            className="size-7 grid place-items-center rounded-full text-text-subtle hover:bg-surface-2 hover:text-text transition-colors shrink-0"
+          >
+            <Pencil size={13} strokeWidth={1.75} />
+          </button>
+
+          {/* ขอลา — filed from here because this is where people already plan their days.
+              Defaults to the date currently shown. Gated `leave.request` (every role). */}
+          {can("leave.request") && (
+            <button
+              onClick={() => setLeaveOpen(true)}
+              className="ml-auto inline-flex items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-small text-text-muted hover:border-accent hover:text-accent transition-colors shrink-0"
+            >
+              <CalendarOff size={12} strokeWidth={1.75} /> ขอลา
+            </button>
+          )}
+        </div>
+
         {/* Add task — quick inline + advanced sheet */}
-        <div className="flex items-center gap-2 p-3 border-t border-border">
+        <div className="flex items-center gap-2 p-3 border-t border-border mt-3">
           <button
             onClick={cycleDraftType}
             className="shrink-0"
@@ -241,7 +379,140 @@ export function DailyPlan({ agent }: { agent: string }) {
         onDelete={deleteTask}
         onClose={() => setSheet({ open: false, task: null })}
       />
+
+      {/* Completion confirm — only for tasks that log an activity. */}
+      <TaskCompleteSheet
+        task={completing}
+        onConfirm={confirmComplete}
+        onClose={() => setCompleting(null)}
+      />
+
+      {quickEdit && (
+        <QuickActionsEditor
+          actions={quick}
+          onChange={applyQuick}
+          onClose={() => setQuickEdit(false)}
+        />
+      )}
+
+      {/* ขอลา — defaults to the date currently shown in the plan. */}
+      <LeaveRequestSheet
+        open={leaveOpen}
+        defaultDate={date}
+        onClose={() => setLeaveOpen(false)}
+      />
     </Card>
+  );
+}
+
+// ── Quick Add editor ─────────────────────────────────────────────────────────
+// Per-user preference, so it lives here rather than in company Settings. Adding a chip
+// picks an action from the SAME catalog the activity log uses (ACTION_GROUPS) — a chip
+// bound to an action logs it on completion; one without is a plain to-do.
+function QuickActionsEditor({
+  actions,
+  onChange,
+  onClose,
+}: {
+  actions: QuickAction[];
+  onChange: (next: QuickAction[]) => void;
+  onClose: () => void;
+}) {
+  const [label, setLabel] = React.useState("");
+  const [action, setAction] = React.useState("");
+  const [type, setType] = React.useState<TaskType>("build");
+
+  const add = () => {
+    const l = label.trim() || action;
+    if (!l) return;
+    onChange([
+      ...actions,
+      { id: `qa_custom_${Date.now()}`, label: l, type, activityType: action || undefined },
+    ]);
+    setLabel("");
+    setAction("");
+  };
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-md bg-surface rounded-t-xl sm:rounded-xl border border-border shadow-pop p-5 flex flex-col gap-3.5 max-h-[85vh] overflow-y-auto"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-h3">ปุ่มลัด</div>
+            <p className="text-label text-text-subtle mt-0.5">
+              ตั้งเองได้ · แตะปุ่มลัดเพื่อเพิ่มงานเข้าแผนวันนั้นทันที
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="ปิด"
+            className="size-8 grid place-items-center rounded-md text-text-subtle hover:bg-surface-hover hover:text-text transition-colors shrink-0"
+          >
+            <X size={18} strokeWidth={1.75} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          {actions.length === 0 && (
+            <p className="text-small text-text-subtle py-2">ยังไม่มีปุ่มลัด</p>
+          )}
+          {actions.map((qa) => (
+            <div key={qa.id} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+              <span className="text-body flex-1 min-w-0 truncate">{qa.label}</span>
+              {qa.activityType && <Pill tone="accent">{qa.activityType}</Pill>}
+              <Pill tone={TASK_TYPES[qa.type].tone}>{TASK_TYPES[qa.type].label}</Pill>
+              <button
+                onClick={() => onChange(actions.filter((x) => x.id !== qa.id))}
+                aria-label={`ลบ ${qa.label}`}
+                className="size-7 grid place-items-center rounded-md text-text-subtle hover:bg-red-bg hover:text-red transition-colors shrink-0"
+              >
+                <Trash2 size={14} strokeWidth={1.75} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-border pt-3 flex flex-col gap-2.5">
+          <div className="text-label text-text-subtle">เพิ่มปุ่มลัด</div>
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="ชื่อที่จะแสดง…" />
+          <div className="flex gap-2">
+            <select
+              value={action}
+              onChange={(e) => setAction(e.target.value)}
+              className="flex-1 h-9 px-3 rounded-md border border-border-strong bg-surface text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <option value="">— ไม่ผูกกิจกรรม (งานทั่วไป) —</option>
+              {ACTION_GROUPS.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.items.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <button
+              onClick={() => setType(TASK_TYPE_ORDER[(TASK_TYPE_ORDER.indexOf(type) + 1) % TASK_TYPE_ORDER.length])}
+              title="ประเภทงาน (แตะเพื่อเปลี่ยน)"
+              className="shrink-0"
+            >
+              <Pill tone={TASK_TYPES[type].tone}>{TASK_TYPES[type].label}</Pill>
+            </button>
+          </div>
+          <p className="text-label text-text-subtle">
+            ผูกกิจกรรมไว้ = ติ๊กเสร็จแล้วระบบบันทึกกิจกรรมให้อัตโนมัติ (นับเข้า KPI)
+          </p>
+          <button
+            onClick={add}
+            className="h-9 rounded-md bg-accent text-text-onaccent font-medium hover:bg-accent-hover transition-colors"
+          >
+            เพิ่ม
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

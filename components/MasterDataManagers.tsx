@@ -17,6 +17,7 @@ import {
   type TemplateKind,
   type TemplateSource,
 } from "@/lib/masterdata";
+import { TAG_TONE_CLASS, TAG_TONE_ORDER, type LeadTag, type TagTone } from "@/lib/tags";
 import { cn } from "@/lib/cn";
 
 // ---- Controlled vocabulary list ---------------------------------------------
@@ -158,6 +159,147 @@ export function LeadReferenceManager() {
       <RefListCard title="Contact By" note="วิธี/กล่องที่ติดต่อเข้ามา" items={contactBys} onChange={setContactBys} placeholder="เพิ่มวิธีติดต่อ…" warnFor={unknownLeadUsage} />
       <RefListCard title="เพศ" items={genders} onChange={setGenders} placeholder="เพิ่ม…" warnFor={unknownLeadUsage} />
       <RefListCard title="สัญชาติ" items={nationalities} onChange={setNationalities} placeholder="เพิ่มสัญชาติ…" warnFor={unknownLeadUsage} />
+    </div>
+  );
+}
+
+// ---- Lead group tag (CEO-governed, single-select) ---------------------------
+// Unlike the RefItem lists above, a tag stores its COLOUR: the whole point of a company
+// standard is that everyone sees the same tag the same colour, so the tone is chosen here
+// rather than derived from a hash. One tag per lead (CEO: "ติดได้คนเดียว"), so this list is
+// a set of mutually exclusive groups — see lib/tags.ts.
+export function LeadTagsManager() {
+  const { leadTags, setLeadTags } = useMasterData();
+  const [draft, setDraft] = React.useState("");
+
+  const add = () => {
+    const label = draft.trim();
+    if (!label || leadTags.some((t) => t.label === label)) return;
+    // New tags get id = label so a raw stored value still renders if the label is edited
+    // later; seeded tags keep their stable slug ids.
+    const tone = TAG_TONE_ORDER[leadTags.length % TAG_TONE_ORDER.length];
+    setLeadTags([...leadTags, { id: label, label, tone }]);
+    setDraft("");
+  };
+
+  const update = (id: string, patch: Partial<LeadTag>) =>
+    setLeadTags(leadTags.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+
+  return (
+    <Card>
+      <div className="px-4 py-3 border-b border-border">
+        <div className="text-h3">แท็กกลุ่มลูกค้า</div>
+        <p className="text-label text-text-subtle mt-0.5">
+          ลูกค้า 1 คนติดได้ 1 แท็ก · เซลส์เลือกจากรายการนี้เท่านั้น สร้างเองไม่ได้
+        </p>
+      </div>
+      <CardContent className="flex flex-col gap-1.5">
+        {leadTags.map((t) => (
+          <div key={t.id} className="flex items-center gap-2">
+            <Input
+              value={t.label}
+              onChange={(e) => update(t.id, { label: e.target.value })}
+              className="flex-1"
+            />
+            <TonePicker value={t.tone} onChange={(tone) => update(t.id, { tone })} label={t.label} />
+            <ConfirmDelete
+              onDelete={() => setLeadTags(leadTags.filter((x) => x.id !== t.id))}
+              confirmLabel={`ลบ “${t.label}”?`}
+              warning={usageWarning(null, "ลีด")}
+            />
+          </div>
+        ))}
+        <div className="flex items-center gap-2 pt-1">
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            placeholder="เพิ่มแท็ก…"
+            className="flex-1"
+          />
+          <button
+            onClick={add}
+            aria-label="เพิ่ม"
+            className="size-8 grid place-items-center rounded-md bg-accent text-text-onaccent hover:bg-accent-hover transition-colors shrink-0"
+          >
+            <Plus size={16} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Live preview — what a sale will actually see in the leads table. */}
+        <div className="border-t border-border mt-2 pt-3">
+          <div className="text-label text-text-subtle mb-1.5">ตัวอย่างที่เซลส์เห็น</div>
+          <div className="flex flex-wrap gap-1.5">
+            {leadTags.length === 0 ? (
+              <span className="text-small text-text-subtle">ยังไม่มีแท็ก</span>
+            ) : (
+              leadTags.map((t) => (
+                <span
+                  key={t.id}
+                  className={cn(
+                    "inline-flex items-center rounded px-1.5 py-0.5 text-label font-medium",
+                    TAG_TONE_CLASS[t.tone]
+                  )}
+                >
+                  {t.label || "—"}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Six-swatch colour picker — the tag's stored tone. */
+function TonePicker({
+  value,
+  onChange,
+  label,
+}: {
+  value: TagTone;
+  onChange: (tone: TagTone) => void;
+  label: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`สีของแท็ก ${label}`}
+        aria-expanded={open}
+        className={cn(
+          "size-8 rounded-md border border-border-strong grid place-items-center hover:border-accent transition-colors",
+          TAG_TONE_CLASS[value]
+        )}
+      >
+        <span className="size-3 rounded-full bg-current" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-[calc(100%+4px)] z-50 flex gap-1 p-1.5 rounded-md border border-border bg-surface shadow-pop">
+            {TAG_TONE_ORDER.map((t) => (
+              <button
+                key={t}
+                onClick={() => {
+                  onChange(t);
+                  setOpen(false);
+                }}
+                aria-label={t}
+                className={cn(
+                  "size-6 rounded grid place-items-center border transition-colors",
+                  TAG_TONE_CLASS[t],
+                  t === value ? "border-text" : "border-transparent hover:border-border-strong"
+                )}
+              >
+                <span className="size-2.5 rounded-full bg-current" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

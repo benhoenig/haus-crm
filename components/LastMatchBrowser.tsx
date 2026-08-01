@@ -7,7 +7,12 @@ import {
   type CloseType,
   closeTypeTone,
   sizeSummary,
+  matchScope,
+  scopeMatches,
 } from "@/lib/lastMatch";
+import { useRbac } from "@/components/RbacProvider";
+import { visibleMemberIds } from "@/lib/teams";
+import { getEmployee } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
@@ -35,10 +40,29 @@ const SORT_VALUE: Record<string, (m: LastMatch) => number | string | null> = {
   agent: (m) => m.sale_id,
 };
 
-export function LastMatchBrowser({ matches }: { matches: LastMatch[] }) {
+export function LastMatchBrowser({ matches: all }: { matches: LastMatch[] }) {
   const [q, setQ] = React.useState("");
   const [close, setClose] = React.useState<"all" | CloseType>("all");
   const { sort, onSort } = useSort({ key: "date", dir: "desc" });
+  const { can, currentUser, teams } = useRbac();
+
+  // ── Scope: own → team → all (CEO feedback R1). Resolved from permissions, then mapped
+  // from user ids to the employee codes (S-00x) the ledger's `sale_id` actually stores.
+  const scope = matchScope(can);
+  const matches = React.useMemo(() => {
+    if (scope === "all") return all;
+    if (scope === "none") return [];
+    // "team" reuses the existing team-scoping helper (a leader sees their team, everyone
+    // else just themselves); "own" is always just the viewer.
+    const memberIds =
+      scope === "team"
+        ? (visibleMemberIds(teams, currentUser.id, false) ?? new Set([currentUser.id]))
+        : new Set([currentUser.id]);
+    const codes = new Set(
+      [...memberIds].map((id) => getEmployee(id)?.code).filter((c): c is string => !!c)
+    );
+    return scopeMatches(all, codes);
+  }, [all, scope, teams, currentUser.id]);
 
   const query = q.trim().toLowerCase();
   const filtered = matches
@@ -60,6 +84,19 @@ export function LastMatchBrowser({ matches }: { matches: LastMatch[] }) {
     { key: "all", label: "ทั้งหมด" },
     ...CLOSE_TYPES.map((t) => ({ key: t, label: t })),
   ];
+
+  // Only worth a เซลส์ column when the viewer can actually see more than one person's rows.
+  const showAgent = scope === "all" || scope === "team";
+
+  if (scope === "none") {
+    return (
+      <Card>
+        <div className="p-10 text-center text-small text-text-subtle">
+          คุณไม่มีสิทธิ์ดู Last Match
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -116,7 +153,9 @@ export function LastMatchBrowser({ matches }: { matches: LastMatch[] }) {
                 <TH>ห้อง</TH>
                 <SortHeader label="ราคาปิด" sortKey="price" sort={sort} onSort={onSort} align="right" defaultDir="desc" />
                 <SortHeader label="ประเภทการปิด" sortKey="close" sort={sort} onSort={onSort} />
-                <SortHeader label="เซลส์" sortKey="agent" sort={sort} onSort={onSort} />
+                {/* Own-scoped viewers see only their own rows — a column repeating their own
+                    name (and a sort on it) is noise. */}
+                {showAgent && <SortHeader label="เซลส์" sortKey="agent" sort={sort} onSort={onSort} />}
                 <TH>หมายเหตุ</TH>
               </TR>
             </THead>
@@ -148,7 +187,7 @@ export function LastMatchBrowser({ matches }: { matches: LastMatch[] }) {
                       <span className="text-text-subtle">—</span>
                     )}
                   </TD>
-                  <TD className="num text-small text-text-muted">{m.sale_id ?? "—"}</TD>
+                  {showAgent && <TD className="num text-small text-text-muted">{m.sale_id ?? "—"}</TD>}
                   <TD className="text-small text-text-muted max-w-[220px]">
                     <span className="line-clamp-1">{m.last_match_remark ?? "—"}</span>
                   </TD>

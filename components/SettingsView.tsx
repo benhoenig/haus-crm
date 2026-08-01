@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ShieldCheck, Users, Map, Home, ListChecks, Activity, Target, Info, Lock, ClipboardList, Megaphone, Medal } from "lucide-react";
+import { ShieldCheck, Users, Map, Home, ListChecks, Activity, Target, Info, Lock, ClipboardList, Megaphone, Medal, Tags, CalendarOff } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { type Zone } from "@/lib/zones";
 import { RolesManager } from "@/components/RolesManager";
@@ -10,17 +10,19 @@ import { ZonesAdmin } from "@/components/ZonesAdmin";
 import {
   PropertyTypesManager,
   LeadReferenceManager,
+  LeadTagsManager,
   ActionTypesManager,
   KpiTemplatesManager,
 } from "@/components/MasterDataManagers";
 import { ChecklistTemplatesManager } from "@/components/ChecklistTemplatesManager";
 import { CopyTemplateEditor } from "@/components/CopyTemplateEditor";
 import { SalesRankManager } from "@/components/SalesRankManager";
+import { LeaveAllowanceManager } from "@/components/LeaveAllowanceManager";
 import { useRbac } from "@/components/RbacProvider";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-type SectionKey = "roles" | "teams" | "zones" | "property_types" | "lead_fields" | "action_types" | "kpi" | "ranks" | "checklists" | "copy";
+type SectionKey = "roles" | "teams" | "zones" | "property_types" | "lead_fields" | "lead_tags" | "action_types" | "kpi" | "ranks" | "checklists" | "copy" | "leave";
 // Each section is gated to a permission — the sub-nav only shows what the viewer can govern,
 // so Listing Support (reference.manage) sees the reference lists but not roles/zones/KPI.
 type Section = { key: SectionKey; label: string; icon: LucideIcon; perm: string };
@@ -34,9 +36,16 @@ const SECTIONS: Section[] = [
   { key: "checklists", label: "เช็คลิสต์ทรัพย์", icon: ClipboardList, perm: "checklists.manage" },
   { key: "copy", label: "คำโฆษณา", icon: Megaphone, perm: "copy.manage" },
   { key: "lead_fields", label: "ช่องทาง & ฟิลด์ Lead", icon: ListChecks, perm: "reference.manage" },
+  // CEO-only (masterdata.govern), NOT reference.manage: the group tag is a company-wide
+  // reporting dimension, not a light intake vocabulary. CEO can delegate it by granting
+  // masterdata.govern to a role.
+  { key: "lead_tags", label: "แท็ก Lead", icon: Tags, perm: "masterdata.govern" },
   { key: "action_types", label: "ประเภทกิจกรรม", icon: Activity, perm: "masterdata.govern" },
   { key: "kpi", label: "เป้าหมาย KPI", icon: Target, perm: "masterdata.govern" },
   { key: "ranks", label: "Rank เซลล์ใหม่", icon: Medal, perm: "masterdata.govern" },
+  // Leave quota — gated leave.manage (CEO/HR), NOT masterdata.govern: it is an HR policy
+  // number, not part of the CRM vocabulary.
+  { key: "leave", label: "โควตาวันลา", icon: CalendarOff, perm: "leave.manage" },
 ];
 
 export function SettingsView({
@@ -143,6 +152,30 @@ export function SettingsView({
               desc="รายการที่ฟอร์มรับลีดใช้ (Marketing Channel · Contact By · เพศ · สัญชาติ) · จัดการโดย CEO / Listing Support"
             />
             <LeadReferenceManager />
+          </>
+        )}
+        {section === "lead_tags" && (
+          <>
+            <SectionHeader
+              title="แท็ก Lead"
+              desc="แท็กกลุ่มลูกค้ามาตรฐานของบริษัท · เซลส์เลือกได้ 1 แท็กต่อลูกค้า 1 คน และสร้างเองไม่ได้ · จัดการโดย CEO"
+            />
+            <Note>
+              แท็กนี้เป็น <span className="text-text">กลุ่มประเภทลูกค้า</span> ไม่ใช่ระดับความร้อน —
+              ระดับความร้อนใช้ช่อง Potential (A / B / C) ที่มีอยู่แล้ว ควรตั้งให้แต่ละแท็ก
+              <span className="text-text"> แยกจากกันชัดเจน</span> เพราะลูกค้า 1 คนติดได้แค่แท็กเดียว{" "}
+              <span className="text-text">โหมดออกแบบ: การเปลี่ยนแปลงยังไม่ถูกบันทึก</span>
+            </Note>
+            <LeadTagsManager />
+          </>
+        )}
+        {section === "leave" && (
+          <>
+            <SectionHeader
+              title="โควตาวันลา"
+              desc="จำนวนวันลาต่อปีของแต่ละประเภท · ใช้คำนวณวันลาคงเหลือในหน้าวันลา · CEO / HR"
+            />
+            <LeaveAllowanceManager />
           </>
         )}
         {section === "action_types" && (

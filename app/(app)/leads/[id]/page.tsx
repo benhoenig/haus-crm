@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Building2, History, Banknote } from "lucide-react";
 import { Topbar } from "@/components/Topbar";
 import { LeadHeader } from "@/components/LeadHeader";
+import { LeadTagRow } from "@/components/LeadTagRow";
 import { LeadTimeline } from "@/components/LeadTimeline";
 import { LeadAdminPanel } from "@/components/LeadAdminPanel";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -146,6 +147,11 @@ export default async function LeadDetailPage({
                 </Row>
                 <Row label="ประเภท">
                   {lead.lead_type ? <Pill>{lead.lead_type}</Pill> : <span className="text-text-subtle">—</span>}
+                </Row>
+                {/* Group tag — CEO-governed, one per lead. Shares the same store as the
+                    leads table, so editing in either place stays in sync. */}
+                <Row label="แท็ก">
+                  <LeadTagRow leadId={lead.lead_id} />
                 </Row>
                 <Row label="ผู้ดูแล">
                   {lead.sale_id ? (

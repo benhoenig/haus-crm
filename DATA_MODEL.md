@@ -15,25 +15,69 @@
 
 ---
 
+## 🔴 HANDOVER — read this first (decided 2026-08-01)
+
+This project is being handed from **design** to **wiring**. Three questions that shaped the
+whole architecture now have answers. They are not reversible cheaply — build to them.
+
+### 1. The Google Sheet is being RETIRED — one-time import, NOT sync
+The team **stops using the sheet** when the CRM goes live (Ben, 2026-08-01). This is the
+single most consequential decision here:
+
+- **Build a one-time migration**, not a two-way sync. No change-detection, no conflict
+  resolution, no write-back to Sheets. All of that is now out of scope.
+- The CRM becomes the **system of record** on day one. The sheet is a source for the initial
+  load and an archive after that.
+- Import must therefore be **complete and correct in one pass** — there is no "the sheet will
+  catch it" fallback. Normalization can't be deferred: see
+  [Import must-fixes](#import--normalization-must-fixes), and the ส่วนกลาง / อายุ decisions in
+  §1, which must be applied *during* the import, not after.
+- Current DB holds a **~5–10% demo sample** (10 listings, 10 leads, 3 matches) against
+  ~109 / ~193 / ~119 in the sheet. The real import has not happened.
+
+### 2. There is NO auth yet — it is the top wiring priority
+`RbacProvider` is a **"view as" switcher**: you pick who to be from a dropdown. There is no
+login, no session, no server-side identity.
+
+**Consequence: every privacy feature in this app is currently decoration.** Owner-contact
+privacy, the Last Match own/team/all scope, contact `created_by`/`assigned_to` scoping — all
+of it is client-side filtering over data the browser already received. None of it protects
+anything until real accounts exist.
+
+Order of work: **auth → session identity → RLS → then trust the permission matrix.** The
+seeded matrix (see [Seeded role matrix](#seeded-role-matrix--this-is-the-access-policy-2026-07-15))
+is the spec RLS must reproduce. A login screen is being designed (`/login`) — design only,
+no auth provider wired.
+
+### 3. Supabase ownership transfers with the handover
+The incoming developer **has full Supabase access**; this design phase only ever had the
+public anon key, which is why the schema was never inspected and the listing **base table
+was never located** — only the read-only view `v_main_listing` is exposed publicly.
+
+First task for whoever picks this up: **check whether the base listing table already contains
+the 15 sheet columns missing from the view** (§1). If yes, extending the view is a small job;
+if no, those columns need adding *and* importing.
+
+---
+
 ## Build status at a glance
 
 | Source tab | Rows | CRM surface | Status |
 | :-- | --: | :-- | :-- |
 | **Listings** | ~109 | `/listings` (ทรัพย์) | ✅ built (design-first) |
 | **Buyer Focus** | ~176 | `/leads` (Lead) | ✅ built (design-first) |
-| **Projects** | 39 | project knowledge base | ⛔ **not designed yet** |
-| **Last Match** | 118 | market-comps ledger | ⛔ **not designed yet** |
-| **Actions** | 289 | agent activity log → FAB logger + ผลงาน/KPI | ⛔ **not designed yet** ([approach decided](#design-decisions--2026-07-13)) |
-| **Zone** | — | CEO-managed lookup (ตั้งค่า/admin) | ⛔ **not designed yet** |
+| **Projects** | 39 | `/projects` (โครงการ) | ✅ built (design-first) |
+| **Last Match** | 118 | `/last-match` — closed-deal ledger, scoped own/team/all | ✅ built (design-first) |
+| **Actions** | 289 | activity log — written by ticking Daily-Plan tasks | ⚠️ **no review screen** (see below) |
+| **Zone** | — | ตั้งค่า → โซน (`ZonesAdmin`) | ✅ built (design-first) |
 | **HR Sheet → Employee Lists** | ~10 | `/team` (ทีม/บุคคล) + employee create/edit | ✅ built (design-first) |
 | **HR Sheet → Zone** | 519 | zone master (assigned sales + sheet links) | ⚠️ richer than current `zone` |
-| **HR Sheet → Day off** | ~1000 | leave management | ⛔ not designed (candidate surface) |
+| **HR Sheet → Day off** | 21 | `/leave` (วันลา) + ขอลา in แผนวันนี้ | ✅ built (design-first) |
 | **HR Sheet → User Pass** | ~1000 | portal/ad logins (back-office secrets) | ❌ not a CRM surface |
 | _Owner, New Lead, KPI Target, Spending, Comments, Dashboards…_ | — | various | ⛔ not yet reviewed |
 
-> ⚠️ **Design-steps reminder:** three real, populated surfaces below (**Projects,
-> Last Match, Actions**) exist in the source but have **no screen in the CRM**.
-> Add them to the design plan before we call the UI phase "done." See
+> ✅ **The source tabs are covered.** Projects, Last Match and Zone are built. The `Actions`
+> tab has **no dedicated screen by design** — see the note under
 > [Design backlog](#design-backlog--surfaces-not-yet-built).
 
 ---
@@ -71,6 +115,28 @@ populated FK). Assigning real IDs + name-normalization is an import task — see
 
 **Media / meta:** `AS` Remark · `AT` Photo Album · `AU` Link Location (maps) · `AV` Link · `AX` Last Match · `AY` Last Match Type · `AZ` Created By · `BA` Days on Market (formula).
 
+**What the app actually reads (updated 2026-07-29).** `v_main_listing` exposes **55 columns**;
+the app read only **17** until this round and now reads all 55 (`LISTING_COLUMNS` in
+`lib/queries.ts`). Types were probed against the live schema, not inferred from sample rows:
+`floor` and `unit_no` are **TEXT**, `parking` is an integer, `sign`/`vdo`/`owner_focus` are
+booleans, and `date_created`/`livinginsider_date`/`owner_talk_last_date` are dates.
+
+The view also carries columns the sheet doesn't (`building`, `view_type`, `livinginsider_date`,
+`propertyhub_link`, `project_id`, `owner_id`, `zone_name_eng`) — someone normalized beyond the
+source. `created_by` **exists in the view but is NULL in every live row**, which is why the
+fake managing-agent seed in `lib/listings.ts` can't be deleted yet.
+
+**15 sheet columns are NOT in the view** and still need it extended: `Hook` · `ส่วนกลาง` ·
+`อายุ` · `Photo Album Link` · `Link` · `Last Match Price/Remark` · `Last Match`/`Last Match
+Type` · `New Photo` · `Facebook Ad` · `DD Boost` · `LV Boost` · `FB Repost` ·
+`Marketing Report`. Import decisions for the two messy ones (Ben, 2026-07-29):
+- **`ส่วนกลาง` holds three units at once** — `45 บาท` (rate per ตร.ว./month, the majority),
+  `44,000` (per year), `เดือนละ 2,024` (per month). Verified: HRP1001 is 120.5 ตร.ว. and
+  120.5 × 30 × 12 ≈ 44,000. **Store the rate** — `common_fee_rate` + `common_fee_unit`
+  (`per_wa_month` | `per_sqm_month`), original string kept in `common_fee_note`.
+- **`อายุ` → store `built_year`, not age.** Age decays; year built doesn't. Back-computing
+  costs ±1 year once on ~40 rows vs. permanent drift on every row. Intake asks ปีที่สร้าง.
+
 **Enums (observed):**
 - `D` Listing Status → `Posted`(31) · `Sold Completed`(19) · `Need Info`(9) · `Cancel Completed`(4)
 - `P` Potential → `Normal`(41) · `A List`(20) · `Exclusive`(1) · `A List + Fb add`(1)
@@ -107,14 +173,29 @@ contact never reaches the client on that surface.
   (counts: Call 43 · Show 35 · Follow 28 · Lead 25 · Close 4 · Appoint 4 · Nego 2 · Win 2)
 - `X` Lead Type → `Buyer - Buy`(149) · `Buyer - Rent`(16) · `Co-Agent`(10)
 
-**Lead tags (new, design-first 2026-07-18).** `/leads` gained **free-form tags** on the
-table — add/create via an inline per-row popover, remove via chip ×, plus a **group-by-tag**
-view (a lead shows under each of its tags + an "ไม่มีแท็ก" group). The source Buyer Focus
-sheet has **no tag column**, so this is a new concept: `lib/tags.ts` (sample + local state).
-**Wire to two new tables:** `tags(id, label)` (the pool — grows as users create tags) +
-`lead_tags(lead_id, tag_id)` (many-to-many assignments). Tag colour is **derived from the
-label** (stable hash → tone), so no colour column is needed. Also removed `/pipeline` this
-date (redundant with the leads stage filter) — `lib/pipeline.ts` STAGES stays (leads uses it).
+**Lead group tag (design-first 2026-07-18 · MODEL REPLACED 2026-07-29).** The source Buyer
+Focus sheet has **no tag column**, so this is a new concept (`lib/tags.ts`, in-memory).
+
+The original build was **free-form and multi-select** — any user could invent a tag, a lead
+could carry several, and colour was hashed from the label. **CEO feedback R1 replaced all of
+that:** *"ให้มี Standard ที่ใช้กันทุกคนไปเลย"* and, on how many a lead may hold,
+*"ติดได้คนเดียว"*. The model is now:
+
+- **One tag per lead** → **a single FK column `main_6_buyer_crm.tag_id`, NOT a join table.**
+- **CEO-governed list** — `lead_tags_ref(id, label, tone, sort_order, is_active)`, edited in
+  ตั้งค่า → แท็ก Lead, gated `masterdata.govern`. Sales pick from it and **cannot create**.
+- **Colour is stored** (`tone`), chosen by the CEO — no longer derived. A standard everyone
+  shares must look the same to everyone.
+- Group-by-tag buckets are now **disjoint**, so counts sum to the row total (under the old
+  model a lead appeared in every group it carried and totals never reconciled). Group order
+  follows the CEO's list order.
+- Seed (นักลงทุน / ซื้ออยู่เอง / ปล่อยเช่า / ต่างชาติ) is a **placeholder** for the CEO to
+  overwrite. Keep it a *buyer-type* axis — `potential` (A/B/C) already grades temperature, so
+  a second hot/warm/cold field would compete with an existing column.
+- Prefer `is_active = false` over hard delete: unknown ids resolve to `null` in the UI.
+
+Also removed `/pipeline` on 2026-07-18 (redundant with the leads stage filter) —
+`lib/pipeline.ts` STAGES stays (leads uses it).
 
 ---
 
@@ -215,10 +296,43 @@ stays as modals — different intent.
 The **zone↔sales assignment** is the inverse of `Employee.zoneCodes` (HR sheet's `Zone (Sales)`) —
 wire as **one join table**, not two. Current `lib/zones.ts` is thinner (no sheet/location/dates).
 
-### Tab 3 — `Day off` (cols A–G, ~1000 rows) ⛔ candidate surface
+### Tab 3 — `Day off` (cols A–G, **21 real rows**) ✅ built → `/leave` (วันลา)
 
-`A` Date Submit · `B` Name · `C/D` Start/End Date · `E` Condition (`ลาพักร้อน`/`ลากิจ`…) ·
-`F` Remark · `G` submission link. A **leave-management** surface if the client wants it in the CRM.
+`A` Date Submit · `B` Name · `C/D` Start/End Date · `E` Condition (leave type) ·
+`F` Remark · `G` ลิงค์กรอก (Google Form link — **empty in every row**).
+
+**⚠️ The source has NO approval column** — today it is a pure submission log. The CRM
+**adds an approval step** (Ben, 2026-08-01): requests land `pending`, HR/CEO approve or
+reject. `decided_by` / `decided_at` have no source column and are empty for historical rows.
+This is a deliberate process change, not a port.
+
+**Built (design-first):**
+- **`/leave`** (`components/LeaveBoard.tsx`, nav under บุคลากร) — two audiences, one page:
+  `leave.manage` (CEO/HR) sees everyone plus the approval queue and approve/reject buttons;
+  everyone else sees **only their own** requests, read-only, and may withdraw a pending one.
+  Summary strip: pending count · away today · days taken this year. A "ลาวันนี้" block answers
+  the question a manager actually opens this page for.
+- **Requests are filed from แผนวันนี้**, not here — a **ขอลา** button next to the Quick Add
+  chips, defaulting to the date on screen. The plan also shows an **on-leave banner** on any
+  day the viewer has leave, flagged approved vs. pending.
+- **Permissions:** `leave.request` granted to **every** role (taking leave isn't a
+  privilege); `leave.manage` → CEO + HR. ⚠️ Sales Leaders currently **cannot** approve their
+  own team — confirm whether they should.
+- Store: `LeaveProvider` (in-memory). Wire = `leave_requests(id, employee_id, submitted_at,
+  start_date, end_date, type, remark, status, decided_by, decided_at)`. Enforce the decision
+  gate in **RLS**, not just the UI.
+
+**Import must-fixes for this tab:**
+- **Reversed date range** — sheet row 15 (Golf, "ไปเที่ยวเมกา") has start `09/10/2026`, end
+  `20/06/2026`. Seeded as 9–20 Oct on the assumption the end month was mistyped;
+  **confirm with HR**. Add a `start_date <= end_date` constraint.
+- **Exact duplicate** — rows 21 & 22 are identical (Golf, ลาเพื่อทำหมัน, 14/08). Deduped in
+  the seed. Import must dedupe on (employee, start, end, type) or the leave counts twice.
+- **Leave type is free text** with a trailing-space variant (`"ลาป่วย "`). Normalize to the
+  `LEAVE_TYPES` list (`ลาพักร้อน · ลากิจ · ลาป่วย · ลาคลอด · ลาเพื่อทำหมัน · อื่นๆ`);
+  `ลาเพื่อทำหมัน` is genuine Thai statutory leave and appears in the data — keep it.
+- **Name → employee id**: the sheet stores only a nickname. Join to `Employee.nickname`;
+  fails on any future duplicate nickname, so map to ids at import.
 
 ### Tab 4 — `User  Pass` (~1000 rows) ❌ not a CRM surface
 
@@ -232,15 +346,38 @@ Shared secrets / back-office — keep out of the CRM (or a locked CEO-only vault
 These come straight from the source workbook and must be planned into the remaining
 **design steps** (then wired):
 
-- [ ] **Projects screen** — project knowledge base / persona cards (pros/cons, common
-      fees, flood risk, resident demographic, juristic contact). Feeds the sales pitch;
-      link from each Listing's project. Design for sparse data + inline edit.
-- [ ] **Last Match screen** — market-comparables ledger (searchable by zone/project/price),
-      surfaced on Listing detail ("recent comparable sales nearby") and as a buyer-coaching tool.
-- [ ] **Actions screen** — agent activity log + effort/KPI view (time per action type,
-      per day/week), including the unused recap/retro fields (`เกิดอะไรขึ้น/เพราะอะไร/Improvement Plan`).
-- [ ] Decide which of the **remaining unreviewed tabs** (Owner, New Lead, Zone, KPI Target,
-      Spending, Comments, Dashboard*) become CRM surfaces vs. stay back-office.
+- [x] ~~Projects screen~~ — built (`/projects`)
+- [x] ~~Last Match screen~~ — built (`/last-match`), now scope-gated. Note the comparables
+      panel on listing detail was **removed** (CEO feedback R1) — see `CEO_FEEDBACK_R1.md`.
+- [ ] **Login screen** (`/login`) — design only; no auth provider wired. See the handover
+      note at the top of this file: auth is the #1 wiring priority and everything
+      privacy-related depends on it.
+- [x] ~~**Activity log / ผลงาน screen**~~ — **DECIDED: do NOT build** (Ben, 2026-08-01).
+      The old Actions/KPI page was removed in `018833a`, and CEO feedback R1 then made
+      แผนวันนี้ the single surface for activity: you log by ticking a task, and you review by
+      flipping back through dates. A separate screen would duplicate it.
+      Activity is already readable in **six** places — Daily Plan (own history by date),
+      Targets (KPI computed from the log), listing detail timeline, lead detail timeline,
+      เซลล์ใหม่ detail (full per-person list), ทีม (monthly effort count per person), plus the
+      dashboard leaderboard. **Don't reinstate this page** unless the CEO asks for a
+      cross-team activity report specifically.
+      ⚠️ The source tab's recap/retro fields (`เกิดอะไรขึ้น / เพราะอะไร / Improvement Plan`)
+      are unused and have no home — drop them, or fold them into the task `notes` field.
+- [x] ~~Leave management~~ — **built** (`/leave`). Adds an approval step the source sheet
+      never had; see the `Day off` section for the import must-fixes (a reversed date range,
+      an exact duplicate row, free-text leave types).
+- [ ] **เว็บพอร์ทัล** (`/website`) — deliberate placeholder. Cannot be designed until the
+      customer-facing portal itself exists; nav + `website.manage` are already wired.
+- [x] ~~Decide which remaining back-office tabs become CRM surfaces~~ — **DECIDED**
+      (Ben, 2026-08-01):
+  - **`Spending` and `Comments` are OUT.** Not CRM surfaces, no screen, **do not migrate**.
+  - `KPI Target` → already covered by ตั้งค่า → เป้าหมาย KPI.
+  - `Owner` → covered inside listing detail + ผู้ติดต่อ; no standalone screen.
+  - `New Lead` → covered by the lead intake FAB + `/assign`.
+
+  ⚠️ **Consequence to plan for:** the sheet is being retired, so dropped tabs have nowhere to
+  live. **Keep the workbook as a read-only archive** after cutover rather than deleting it —
+  that is the only remaining copy of Spending/Comments.
 
 ---
 
@@ -329,7 +466,8 @@ convenience, not enforcement.
 | listings view / edit | ✓ / ✓ | ✓ / ✓ | ✓ / ✓ | ✓ / – | ✓ / ✓ | ✓ / – | – |
 | listings.marketing / projects.edit | ✓ / ✓ | – | ✓ / ✓ | ✓ / – | – | – | – |
 | lastmatch.add | ✓ | ✓ | ✓ | – | ✓ | – | – |
-| activity.log | ✓ | ✓ | ✓ | ✓ | ✓ | – | – |
+| **lastmatch view** † | **all** | **own** | **all** | **–** | **team** | **–** | **–** |
+| activity.log ‡ | ✓ | ✓ | – | **–** | ✓ | – | – |
 | website.manage | ✓ | – | – | **✓** | – | – | – |
 | performance own / team | ✓ / ✓ | ✓ / ✓ | ✓ / – | ✓ / – | ✓ / ✓ | – / – | – / ✓ |
 | targets set / stretch | ✓ / ✓ | – / ✓ | – / ✓ | – / ✓ | ✓ / ✓ | – | – |
@@ -343,6 +481,21 @@ convenience, not enforcement.
 team leads (see *Sales teams* below). Admin & HR remain **unstaffed** (0 users = 0 real
 access), documenting the org's stated future (lead dispatch, payroll); testable via view-as.
 CEO deletes any that never get used.
+
+† **Last Match view scope — added 2026-07-29 (CEO feedback R1).** Three keys,
+`lastmatch.view_all` / `view_team` / `view_own`; grant exactly one, widest wins. The CEO's
+requirement: *"เซลล์ต้องเห็นของตัวเองได้เท่านั้น ไม่มีสิทธิ์เห็น last match ของคนอื่นในบริษัท"*,
+and *"หัวหน้าทีมเห็นของทั้งทีม"*. Team scope reuses `visibleMemberIds()`. Roles with no scope
+lose the page from their nav entirely. **A closing record is private performance data — this
+must become RLS on `main_7_last_match` keyed on the session user's employee code.** The
+client-side filter in `LastMatchBrowser` still ships every row to the browser.
+
+‡ **`activity.log` changed 2026-07-29.** Marketing **lost** this grant, and Listing Support
+never had it. Every action in `ACTION_GROUPS` is a **sales** action — including ถ่ายรูป and
+Reels, which the *sale* performs, not Marketing (confirmed by Ben). Marketing held it on the
+false premise that they shoot the Reels; there is no action in the catalog they would log.
+The permission also no longer gates a floating button: **the +บันทึก FAB was deleted** and
+activity is now recorded by completing a task in แผนวันนี้.
 
 **Sales teams (new, design-first 2026-07-22).** `lib/teams.ts` adds a `Team { id, name,
 leaderId, memberIds, revenueGoal }` held in the shared org store (`RbacProvider`, alongside
@@ -363,8 +516,11 @@ and the **Lead Database**, and feed `revenueGoal` into team-level targets.
   contact privacy already built) but **do** get `performance.view_team` — the leaderboard is
   intentionally public, and it's what makes `/team` (roster only, no money) visible to them.
 - **Compensation and PII are two separate gates**, both CEO/HR only.
-- `activity.log` goes to everyone carrying a commission rate — including **Benz** (Listing
-  Support) and **Pui** (Marketing), whose work counts toward KPI.
+- ~~`activity.log` goes to everyone carrying a commission rate — including Benz (Listing
+  Support) and Pui (Marketing).~~ **Superseded 2026-07-29:** every action in the catalog is a
+  *sales* action, so `activity.log` is Agent / Sales Leader / CEO only. See ‡ above.
+- **Last Match view is 3-scoped** (own → team → all) and is the first surface where a
+  permission gates *rows*, not just a page. See † above.
 - Listing Support gets `contacts.view_all` (needs every owner's contact to coordinate
   listings), resolving the earlier "duties undefined" note.
 - **Master data is two gates, not one.** `masterdata.govern` = structural/leadership data
