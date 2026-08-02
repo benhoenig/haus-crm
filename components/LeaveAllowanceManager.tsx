@@ -22,16 +22,20 @@ export function LeaveAllowanceManager() {
   const year = TODAY.slice(0, 4);
   const breaches = overQuota(requests, allowances, year);
 
+  // Only an EMPTY field means "unlimited". A non-numeric keystroke used to fall through to
+  // null, silently switching an enforced quota off and emptying the breach list — the exact
+  // failure this screen exists to prevent. Garbage input is now ignored instead.
   const setDays = (type: string, raw: string) => {
     const trimmed = raw.trim();
-    const n = trimmed === "" ? null : Number(trimmed);
-    setAllowances((xs) =>
-      xs.map((a) =>
-        a.type === type
-          ? { ...a, daysPerYear: n == null || isNaN(n) || n < 0 ? null : Math.round(n) }
-          : a
-      )
-    );
+    let next: number | null;
+    if (trimmed === "") {
+      next = null; // explicit "no annual quota"
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0) return; // reject, keep the previous value
+      next = Math.round(n);
+    }
+    setAllowances((xs) => xs.map((a) => (a.type === type ? { ...a, daysPerYear: next } : a)));
   };
 
   return (

@@ -198,11 +198,16 @@ export function ListingEditSheet({
               <Input value={S("project_name_eng")} onChange={(e) => set({ project_name_eng: e.target.value })} />
             </Field>
             <Field label="โซน">
+              {/* Union the stored value in: a zone code the master list no longer carries
+                  would otherwise render as "—" and silently save as empty on the next edit. */}
               <select value={S("zone")} onChange={(e) => set({ zone: e.target.value })} className={field}>
                 <option value="">—</option>
                 {zones.map((z) => (
                   <option key={z.zone_id} value={z.zone_id}>{z.name_thai} · {z.zone_id}</option>
                 ))}
+                {S("zone") && !zones.some((z) => z.zone_id === S("zone")) && (
+                  <option value={S("zone")}>{S("zone")} (ไม่อยู่ในรายการ)</option>
+                )}
               </select>
             </Field>
             <Field label="ใน/นอกโครงการ">
@@ -222,9 +227,14 @@ export function ListingEditSheet({
 
           <Section title="ข้อมูลทรัพย์">
             <Field label="ประเภททรัพย์">
+              {/* Same guard as zone: a listing may store a type that was later removed from
+                  the governed list — keep it selectable rather than blanking the field. */}
               <select value={S("property_type")} onChange={(e) => set({ property_type: e.target.value })} className={field}>
                 <option value="">—</option>
                 {propertyTypes.map((p) => <option key={p.id} value={p.label}>{p.label}</option>)}
+                {S("property_type") && !propertyTypes.some((p) => p.label === S("property_type")) && (
+                  <option value={S("property_type")}>{S("property_type")} (ไม่อยู่ในรายการ)</option>
+                )}
               </select>
             </Field>
             <Field label="บ้านเลขที่ / ยูนิต">

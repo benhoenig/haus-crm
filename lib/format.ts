@@ -69,9 +69,14 @@ export function formatLandArea(
   ngan: number | null | undefined,
   wa: number | null | undefined
 ): string | null {
-  if (rai == null && ngan == null && wa == null) return null;
-  // วา alone is the common case for townhouses/condos with a small plot — show it plainly
-  // instead of a misleading "0-0-24".
-  if (rai == null && ngan == null) return `${formatNumber(wa)} ตร.วา`;
-  return `${rai ?? 0}-${ngan ?? 0}-${wa ?? 0} ไร่`;
+  // Treat 0 the same as absent. The import writes real zeros (not nulls) for the units a
+  // property doesn't use, so a `== null` check alone would still render the misleading
+  // "0-0-24 ไร่" / "0-0-0 ไร่" this function exists to avoid.
+  const r = rai || 0;
+  const n = ngan || 0;
+  const w = wa || 0;
+  if (r === 0 && n === 0 && w === 0) return null;
+  // วา alone is the common case for townhouses/condos with a small plot — show it plainly.
+  if (r === 0 && n === 0) return `${formatNumber(w)} ตร.วา`;
+  return `${r}-${n}-${w} ไร่`;
 }

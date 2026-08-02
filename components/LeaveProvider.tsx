@@ -36,6 +36,12 @@ interface Ctx {
 
 const Ctx = React.createContext<Ctx | null>(null);
 
+// Monotonic id source. `requests.length` is unsafe — withdraw() shrinks the array, so
+// submit → withdraw → submit would mint an id that already exists, and decide()/withdraw()
+// would then act on both rows. Wire = a DB-generated id.
+let leaveSeq = 0;
+const newLeaveId = () => `lv_new_${++leaveSeq}`;
+
 export function LeaveProvider({ children }: { children: React.ReactNode }) {
   const [requests, setRequests] = React.useState<LeaveRequest[]>(() => listLeave());
   const [allowances, setAllowances] = React.useState<LeaveAllowance[]>(
@@ -43,10 +49,7 @@ export function LeaveProvider({ children }: { children: React.ReactNode }) {
   );
 
   const submit = React.useCallback((r: Omit<LeaveRequest, "id" | "status">) => {
-    setRequests((xs) => [
-      { ...r, id: `lv_new_${xs.length}_${r.employeeId}`, status: "pending" },
-      ...xs,
-    ]);
+    setRequests((xs) => [{ ...r, id: newLeaveId(), status: "pending" }, ...xs]);
   }, []);
 
   const decide = React.useCallback(

@@ -3,7 +3,6 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { X, Check, CalendarOff } from "lucide-react";
-import { useRbac } from "@/components/RbacProvider";
 import { useLeave } from "@/components/LeaveProvider";
 import { LEAVE_TYPES, leaveDays } from "@/lib/leave";
 import { TODAY } from "@/lib/momentum";
@@ -23,13 +22,19 @@ const field =
 export function LeaveRequestSheet({
   open,
   defaultDate,
+  employeeId,
+  nickname,
   onClose,
 }: {
   open: boolean;
   defaultDate: string;
+  /** Who the request is filed FOR. Passed in rather than read from the session so this
+   *  matches whoever owns the plan the button was pressed on — otherwise the banner and the
+   *  submission could disagree while `/today` is still hardcoded to SAMPLE_AGENT. */
+  employeeId: string;
+  nickname: string;
   onClose: () => void;
 }) {
-  const { currentUser } = useRbac();
   const { submit } = useLeave();
   const [start, setStart] = React.useState(defaultDate);
   const [end, setEnd] = React.useState(defaultDate);
@@ -73,8 +78,8 @@ export function LeaveRequestSheet({
     e.preventDefault();
     if (invalidRange) return;
     submit({
-      employeeId: currentUser.id,
-      nickname: currentUser.name,
+      employeeId,
+      nickname,
       submittedAt: TODAY,
       startDate: start,
       endDate: end,

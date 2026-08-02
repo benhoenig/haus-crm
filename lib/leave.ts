@@ -111,7 +111,27 @@ export function awayOn(requests: LeaveRequest[], iso: string = TODAY): LeaveRequ
   return requests.filter((r) => coversDate(r, iso));
 }
 
-/** Approved days taken in a calendar year — the balance figure HR cares about. */
+/**
+ * Days of a request that fall INSIDE the given calendar year.
+ *
+ * Leave spanning New Year (e.g. 30 Dec → 3 Jan) must be split across both years' quotas.
+ * Filtering on `startDate` alone charged all 5 days to the start year and none to the next,
+ * which is wrong for the employee's balance AND for HR's over-quota list.
+ */
+export function leaveDaysInYear(
+  r: Pick<LeaveRequest, "startDate" | "endDate">,
+  year: string
+): number {
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const from = r.startDate > yearStart ? r.startDate : yearStart;
+  const to = r.endDate < yearEnd ? r.endDate : yearEnd;
+  if (to < from) return 0; // request doesn't touch this year at all
+  return leaveDays({ startDate: from, endDate: to });
+}
+
+/** Approved days taken in a calendar year — the balance figure HR cares about.
+ *  Counts only the portion that falls within `year` (see leaveDaysInYear). */
 export function daysTakenInYear(
   requests: LeaveRequest[],
   employeeId: string,
@@ -119,8 +139,7 @@ export function daysTakenInYear(
 ): number {
   return requests
     .filter((r) => r.employeeId === employeeId && r.status === "approved")
-    .filter((r) => r.startDate.startsWith(year))
-    .reduce((sum, r) => sum + leaveDays(r), 0);
+    .reduce((sum, r) => sum + leaveDaysInYear(r, year), 0);
 }
 
 // ── Allowance / quota ────────────────────────────────────────────────────────────────
@@ -174,13 +193,12 @@ export function usageByType(
   employeeId: string,
   year: string = TODAY.slice(0, 4)
 ): TypeUsage[] {
-  const mine = requests.filter(
-    (r) => r.employeeId === employeeId && r.status === "approved" && r.startDate.startsWith(year)
-  );
+  const mine = requests.filter((r) => r.employeeId === employeeId && r.status === "approved");
   return allowances.map((a) => {
+    // Year-boundary aware: a request spanning New Year charges each year its own portion.
     const used = mine
       .filter((r) => r.type === a.type)
-      .reduce((sum, r) => sum + leaveDays(r), 0);
+      .reduce((sum, r) => sum + leaveDaysInYear(r, year), 0);
     const remaining = a.daysPerYear == null ? null : a.daysPerYear - used;
     return {
       type: a.type,

@@ -31,6 +31,7 @@ import { useRbac } from "@/components/RbacProvider";
 import { useLeave } from "@/components/LeaveProvider";
 import { LeaveRequestSheet } from "@/components/LeaveRequestSheet";
 import { coversDate } from "@/lib/leave";
+import { listEmployees } from "@/lib/team";
 import { ACTION_GROUPS } from "@/lib/actions";
 import {
   DEFAULT_QUICK_ACTIONS,
@@ -63,6 +64,13 @@ function relLabel(iso: string): string | null {
   return null;
 }
 
+// Monotonic id source. Deriving ids from `tasks.length` is unsafe: the array SHRINKS on
+// delete, so the next task can reuse a departed task's id — and since the logged activity's
+// id is derived from the task id (`taskActivityId`), two tasks would then fight over one
+// activity row. A counter never goes backwards. Wire = a DB-generated id.
+let taskSeq = 0;
+const newTaskId = () => `t_${++taskSeq}`;
+
 export function DailyPlan({ agent }: { agent: string }) {
   const [tasks, setTasks] = React.useState<Task[]>(() => listTasks(agent));
   const [date, setDate] = React.useState(TODAY);
@@ -76,13 +84,27 @@ export function DailyPlan({ agent }: { agent: string }) {
   const [completing, setCompleting] = React.useState<Task | null>(null);
   const { logActivity, removeActivity } = useActivities();
 
-  // Leave — requested from here, shown as a banner on any day it covers.
-  const { can, currentUser } = useRbac();
+  // ⚠️ IDENTITY: this screen belongs to ONE person — the `agent` prop. Today `/today`
+  // passes `currentAgent()`, which is hardcoded to SAMPLE_AGENT ("Stone") because the seed
+  // tasks/targets only exist for them; it does NOT follow the view-as switcher.
+  //
+  // Everything owner-scoped here (tasks, logged activity, Quick Add presets, leave) is keyed
+  // off that same `agent`, deliberately. An earlier version mixed the two — activity written
+  // as Stone while the leave banner followed the switched user — so the plan could show
+  // someone else's leave. Keep them aligned.
+  //
+  // `can()` stays viewer-scoped: permissions belong to whoever is looking, not to the plan's
+  // owner. Wire = replace `currentAgent()` with the session user; then the two converge.
+  const { can } = useRbac();
   const { requests } = useLeave();
   const [leaveOpen, setLeaveOpen] = React.useState(false);
-  const myLeaveToday = requests.find(
-    (r) => r.employeeId === currentUser.id && coversDate(r, date)
+  const planOwner = React.useMemo(
+    () => listEmployees().find((e) => e.nickname === agent),
+    [agent]
   );
+  const myLeaveToday = planOwner
+    ? requests.find((r) => r.employeeId === planOwner.id && coversDate(r, date))
+    : undefined;
 
   // Quick Add presets — per-user, loaded after mount so the server render matches.
   const [quick, setQuick] = React.useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
@@ -106,14 +128,21 @@ export function DailyPlan({ agent }: { agent: string }) {
   //
   // Tick a linked task → confirm sheet (count + remark) → log. Untick → remove the row, so
   // a mis-tick doesn't leave a phantom activity behind. Unlinked tasks just tick.
+  //
+  // `canLog` re-gates activity.log. Deleting the FAB removed the app's ONLY check on that
+  // permission, so a role without it (Marketing / Listing Support / Admin) could log by
+  // ticking an action-linked task — contradicting the matrix the wiring pass must mirror in
+  // RLS. Without the permission a task still ticks; it just doesn't write an activity.
+  const canLog = can("activity.log");
+
   const toggle = (id: string) => {
     const t = tasks.find((x) => x.id === id);
     if (!t) return;
-    if (!t.done && t.activityType) {
+    if (!t.done && t.activityType && canLog) {
       setCompleting(t);
       return;
     }
-    if (t.done && t.activityType) removeActivity(taskActivityId(t.id));
+    if (t.done && t.activityType && canLog) removeActivity(taskActivityId(t.id));
     setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, done: !x.done } : x)));
   };
 
@@ -155,7 +184,7 @@ export function DailyPlan({ agent }: { agent: string }) {
     const order = Math.max(-1, ...dayTasks.map((t) => t.order)) + 1;
     setTasks((ts) => [
       ...ts,
-      { id: `new_${ts.length}_${order}`, agent, date, title, done: false, order, type: draftType },
+      { id: newTaskId(), agent, date, title, done: false, order, type: draftType },
     ]);
     setDraft("");
   };
@@ -170,7 +199,7 @@ export function DailyPlan({ agent }: { agent: string }) {
     setTasks((ts) => [
       ...ts,
       {
-        id: `qa_${qa.id}_${ts.length}_${order}`,
+        id: newTaskId(),
         agent,
         date,
         title: qa.label,
@@ -183,21 +212,48 @@ export function DailyPlan({ agent }: { agent: string }) {
   };
 
   // Advanced add / edit via the detail sheet.
+  //
+  // Editing a task that has ALREADY been ticked must keep its logged activity in sync —
+  // otherwise changing the action leaves the old one counted, and clearing the action
+  // strands a row that can never be removed (untick only fires for tasks that still carry
+  // an activityType). Both cases silently inflate KPI targets and the probation ladder.
   const applyDraft = (d: TaskDraft) => {
     if (sheet.task) {
-      const id = sheet.task.id;
-      setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...d } : t)));
+      const prev = sheet.task;
+      const next: Task = { ...prev, ...d };
+      if (prev.done && canLog) {
+        if (!next.activityType) {
+          // Action removed from a completed task → drop the activity it produced.
+          removeActivity(taskActivityId(prev.id));
+        } else {
+          // Re-log under the same id: action/date/entity may all have changed.
+          logActivity({
+            id: taskActivityId(prev.id),
+            created_by: agent,
+            action: next.activityType,
+            date: next.date,
+            count: 1,
+            remark: null,
+            related_lead_id: next.relatedLeadId ?? null,
+            related_lead_name: next.relatedLeadName ?? null,
+            related_listing_id: next.relatedListingId ?? null,
+            related_listing_name: next.relatedListingName ?? null,
+          });
+        }
+      }
+      setTasks((ts) => ts.map((t) => (t.id === prev.id ? next : t)));
     } else {
       const order = Math.max(-1, ...dayTasks.map((t) => t.order)) + 1;
-      setTasks((ts) => [
-        ...ts,
-        { id: `new_${ts.length}_${order}`, agent, date, done: false, order, ...d },
-      ]);
+      setTasks((ts) => [...ts, { id: newTaskId(), agent, date, done: false, order, ...d }]);
     }
   };
+
   const deleteTask = () => {
     if (!sheet.task) return;
-    const id = sheet.task.id;
+    const { id, done, activityType } = sheet.task;
+    // Deleting a COMPLETED task must also delete the activity it logged, or the row lives
+    // on forever with no UI left to remove it — permanently overstating effort.
+    if (done && activityType && canLog) removeActivity(taskActivityId(id));
     setTasks((ts) => ts.filter((t) => t.id !== id));
   };
 
@@ -399,6 +455,8 @@ export function DailyPlan({ agent }: { agent: string }) {
       <LeaveRequestSheet
         open={leaveOpen}
         defaultDate={date}
+        employeeId={planOwner?.id ?? ""}
+        nickname={agent}
         onClose={() => setLeaveOpen(false)}
       />
     </Card>

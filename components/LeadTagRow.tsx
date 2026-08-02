@@ -77,7 +77,7 @@ export function LeadTagRow({ leadId }: { leadId: string }) {
             {tag && (
               <button
                 onClick={() => {
-                  setTag(leadId, tag.id);
+                  setTag(leadId, null);
                   setOpen(false);
                 }}
                 className="mt-1 border-t border-border pt-2 px-2 pb-1 text-left text-small text-text-muted hover:text-accent transition-colors"

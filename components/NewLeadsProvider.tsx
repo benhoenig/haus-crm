@@ -78,12 +78,15 @@ export function NewLeadsProvider({ children }: { children: React.ReactNode }) {
     (leadId: string) => (leadId in tags ? tags[leadId] : seedTagForLead(leadId)),
     [tags]
   );
-  /** Single-select: re-picking the current tag clears it. */
+  /**
+   * Single-select assignment. Sets exactly what it's given — pass `null` to clear.
+   *
+   * Deliberately NOT a toggle: in a picker where you click a row to choose, clicking the
+   * already-selected row silently wiping the tag is a trap. Clearing is an explicit
+   * "เอาแท็กออก" action instead.
+   */
   const setTag = React.useCallback((leadId: string, tagId: string | null) => {
-    setTags((m) => {
-      const cur = leadId in m ? m[leadId] : seedTagForLead(leadId);
-      return { ...m, [leadId]: cur === tagId ? null : tagId };
-    });
+    setTags((m) => ({ ...m, [leadId]: tagId }));
   }, []);
 
   return (
